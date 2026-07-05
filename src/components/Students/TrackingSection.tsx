@@ -275,7 +275,6 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
               const isCompleted =
                 assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
               const isCurrent = assignmentNum === currentAssignmentNumber;
-              const marksText = assignment?.marks !== undefined ? ` • ${assignment.marks}` : '';
 
               return (
                 <div
@@ -284,11 +283,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
                     isCompleted ? 'status-success' : isCurrent ? 'status-warning' : 'status-neutral'
                   }`}
                   title={
-                    isCompleted
-                      ? `Submitted${marksText}`
-                      : isCurrent
-                        ? 'Current Assignment'
-                        : 'Not Started'
+                    isCompleted ? 'Completed' : isCurrent ? 'Current Assignment' : 'Not Started'
                   }
                 >
                   <span>A-{String(assignmentNum).padStart(2, '0')}</span>
@@ -300,7 +295,6 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
                         : isCurrent
                           ? 'Current'
                           : 'Pending'}
-                    {marksText}
                   </span>
                 </div>
               );

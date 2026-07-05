@@ -3,7 +3,11 @@ import CallLog from '@/models/CallLog';
 import FollowUp from '@/models/FollowUp';
 import Student from '@/models/Student';
 import { Settings } from '@/models/Settings';
-import { getMissedReleasedAssignmentCount, getStatusFromMissedCount } from '@/lib/student-progress';
+import {
+  getMissedReleasedAssignmentCount,
+  getStatusFromMissedCount,
+  isAssignmentSubmitted,
+} from '@/lib/student-progress';
 
 const FOLLOW_UP_DAYS = 7; // Default days for follow-up after a call
 

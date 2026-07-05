@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { StudentsTable } from '@/components/Students/StudentsTable';
@@ -26,7 +26,7 @@ interface AnalysisResult {
   }>;
 }
 
-export default function StudentsPage() {
+function StudentsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [students, setStudents] = useState<StudentWithRelations[]>([]);
@@ -573,5 +573,25 @@ export default function StudentsPage() {
         isExporting={isExporting}
       />
     </div>
+  );
+}
+
+export default function StudentsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="page-header rounded-3xl border border-border/70 bg-card/70 p-5 sm:p-7">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-primary">
+              Cohort directory
+            </p>
+            <h1 className="page-title">Student Roster</h1>
+            <p className="page-description">Loading roster…</p>
+          </div>
+        </div>
+      }
+    >
+      <StudentsPageContent />
+    </Suspense>
   );
 }
