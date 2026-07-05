@@ -63,6 +63,9 @@ export const CACHE_CONFIG = {
   SUBMISSION_DATA: {
     tag: 'submission-data',
   },
+  REPORTS: {
+    tag: 'reports',
+  },
 } as const;
 
 /**
@@ -132,4 +135,5 @@ export const CACHE_TAGS = {
   CURRENT_ASSIGNMENT: CACHE_CONFIG.CURRENT_ASSIGNMENT.tag,
   CALL_STATISTICS: CACHE_CONFIG.CALL_STATISTICS.tag,
   SUBMISSION_DATA: CACHE_CONFIG.SUBMISSION_DATA.tag,
+  REPORTS: CACHE_CONFIG.REPORTS.tag,
 } as const;

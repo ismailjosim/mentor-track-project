@@ -103,7 +103,11 @@ export async function POST(request: NextRequest) {
             continue;
           }
 
-          const callLog = new CallLog({ ...logData, ownerId: userId });
+          const callLog = new CallLog({
+            ...logData,
+            ownerId: userId,
+            assignmentContext: student.lastCompletedAssignment || 'None',
+          });
           const saved = await callLog.save();
           await saved.populate('studentId');
 
@@ -140,7 +144,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
 
-    const callLog = new CallLog({ ...validatedData, ownerId: userId });
+    const callLog = new CallLog({
+      ...validatedData,
+      ownerId: userId,
+      assignmentContext: student.lastCompletedAssignment || 'None',
+    });
     const saved = await callLog.save();
     await saved.populate('studentId');
 

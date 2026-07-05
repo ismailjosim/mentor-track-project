@@ -227,3 +227,15 @@ export const dashboardApi = {
       cacheTags: [CACHE_TAGS.SUBMISSION_DATA, CACHE_TAGS.DASHBOARD_STATS],
     }),
 };
+
+export const reportsApi = {
+  generate: (sections: string[], onlyMentorshipGroup: boolean = false) => {
+    const params = new URLSearchParams();
+    params.set('sections', sections.join(','));
+    if (onlyMentorshipGroup) params.set('onlyMentorshipGroup', 'true');
+
+    return apiClient.get(`/api/reports?${params.toString()}`, {
+      cacheTags: [CACHE_TAGS.REPORTS],
+    });
+  },
+};

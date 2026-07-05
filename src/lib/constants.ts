@@ -24,6 +24,7 @@ export const PAGE_ROUTES = {
   STUDENTS: '/students',
   STUDENT_DETAIL: '/students/:id',
   BULK_UPDATE: '/bulk-update',
+  REPORTS: '/reports',
 };
 
 // Student Status

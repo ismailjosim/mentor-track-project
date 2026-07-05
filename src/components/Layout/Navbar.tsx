@@ -11,6 +11,7 @@ import {
   LogOut,
   User,
   Command,
+  FileBarChart,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PAGE_ROUTES } from '@/lib/constants';
@@ -23,6 +24,7 @@ const navLinks = [
   { label: 'Dashboard', href: PAGE_ROUTES.DASHBOARD, icon: LayoutDashboard },
   { label: 'Students', href: PAGE_ROUTES.STUDENTS, icon: Users },
   { label: 'Bulk Update', href: PAGE_ROUTES.BULK_UPDATE, icon: RefreshCw },
+  { label: 'Reports', href: PAGE_ROUTES.REPORTS, icon: FileBarChart },
 ];
 
 export function Navbar() {

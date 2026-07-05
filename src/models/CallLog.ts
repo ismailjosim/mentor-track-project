@@ -18,6 +18,14 @@ export interface CallLogDocument {
   promised?: string;
   nextFollowUp?: Date;
   studentId: string;
+  /**
+   * Snapshot of the student's `lastCompletedAssignment` at the moment this call
+   * was logged (e.g. 'A-09', 'None'). Used by the assignment-wise call report to
+   * show how many calls were made while a student was working toward a given
+   * assignment. Populated automatically on create; absent on records logged
+   * before this field existed.
+   */
+  assignmentContext?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -67,6 +75,22 @@ const CallLogSchema = new Schema<CallLogDocumentWithMongoose>(
       ref: 'Student',
       required: [true, 'Student ID is required'],
     } as unknown as typeof Schema.Types.ObjectId,
+    assignmentContext: {
+      type: String,
+      enum: [
+        'A-01',
+        'A-02',
+        'A-03',
+        'A-04',
+        'A-05',
+        'A-06',
+        'A-07',
+        'A-08',
+        'A-09',
+        'A-10',
+        'None',
+      ],
+    },
   },
   { timestamps: true }
 );
@@ -74,6 +98,7 @@ const CallLogSchema = new Schema<CallLogDocumentWithMongoose>(
 // Create indexes for optimal performance
 CallLogSchema.index({ ownerId: 1, studentId: 1 });
 CallLogSchema.index({ ownerId: 1, date: -1 });
+CallLogSchema.index({ ownerId: 1, assignmentContext: 1 });
 
 export default mongoose.models.CallLog ||
   mongoose.model<CallLogDocumentWithMongoose>('CallLog', CallLogSchema);
