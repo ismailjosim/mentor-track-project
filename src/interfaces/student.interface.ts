@@ -1,6 +1,7 @@
 export type AgeRange = '16-17' | '18-19' | '20-25' | '26-30' | '31-40' | '41-50' | '50+';
 export type WorkingDevice = 'Laptop' | 'Desktop' | 'Mobile';
 export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed';
+export type ProgramType = 'EJP' | 'SCIC' | 'Both' | 'Other';
 export type LastCompletedAssignment =
   | 'A-01'
   | 'A-02'

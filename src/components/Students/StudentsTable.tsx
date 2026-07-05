@@ -25,6 +25,8 @@ interface StudentsTableProps {
   onGroupFilterChange?: (group: string) => void;
   deviceFilter?: string;
   onDeviceFilterChange?: (device: string) => void;
+  programFilter?: string;
+  onProgramFilterChange?: (programType: string) => void;
   onResetFilters?: () => void;
   onExportFiltered?: () => void;
   isExporting?: boolean;
@@ -61,6 +63,14 @@ const DEVICE_OPTIONS = [
   { label: 'No Device', value: 'none' },
 ];
 
+const PROGRAM_OPTIONS = [
+  { label: 'All Programs', value: 'all' },
+  { label: 'EJP', value: 'EJP' },
+  { label: 'SCIC', value: 'SCIC' },
+  { label: 'Both', value: 'Both' },
+  { label: 'Other', value: 'Other' },
+];
+
 const PAGE_SIZE = 10;
 
 export function StudentsTable({
@@ -80,6 +90,8 @@ export function StudentsTable({
   onGroupFilterChange,
   deviceFilter = 'all',
   onDeviceFilterChange,
+  programFilter = 'all',
+  onProgramFilterChange,
   onResetFilters,
   onExportFiltered,
   isExporting = false,
@@ -91,12 +103,14 @@ export function StudentsTable({
     !!onProgressFilterChange &&
     !!onGroupFilterChange &&
     !!onDeviceFilterChange &&
+    !!onProgramFilterChange &&
     !!onResetFilters;
   const [localSearch, setLocalSearch] = useState('');
   const [localStatusFilter, setLocalStatusFilter] = useState('all');
   const [localProgressFilter, setLocalProgressFilter] = useState('all');
   const [localGroupFilter, setLocalGroupFilter] = useState('all');
   const [localDeviceFilter, setLocalDeviceFilter] = useState('all');
+  const [localProgramFilter, setLocalProgramFilter] = useState('all');
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     studentId?: string;
@@ -111,12 +125,14 @@ export function StudentsTable({
   const effectiveProgressFilter = hasExternalState ? progressFilter : localProgressFilter;
   const effectiveGroupFilter = hasExternalState ? groupFilter : localGroupFilter;
   const effectiveDeviceFilter = hasExternalState ? deviceFilter : localDeviceFilter;
+  const effectiveProgramFilter = hasExternalState ? programFilter : localProgramFilter;
   const hasActiveFilters =
     !!effectiveSearch ||
     effectiveStatusFilter !== 'all' ||
     effectiveProgressFilter !== 'all' ||
     effectiveGroupFilter !== 'all' ||
-    effectiveDeviceFilter !== 'all';
+    effectiveDeviceFilter !== 'all' ||
+    effectiveProgramFilter !== 'all';
 
   // Use server-side pagination if onPageChange is provided, otherwise use client-side
   const isServerPaginated = !!onPageChange;
@@ -148,8 +164,12 @@ export function StudentsTable({
         effectiveDeviceFilter === 'all' ||
         (effectiveDeviceFilter === 'none' && !s.workingDevice) ||
         s.workingDevice === effectiveDeviceFilter;
+      const matchProgram =
+        effectiveProgramFilter === 'all' || s.programType === effectiveProgramFilter;
 
-      return matchSearch && matchStatus && matchProgress && matchGroup && matchDevice;
+      return (
+        matchSearch && matchStatus && matchProgress && matchGroup && matchDevice && matchProgram
+      );
     });
   }, [
     students,
@@ -158,6 +178,7 @@ export function StudentsTable({
     effectiveProgressFilter,
     effectiveGroupFilter,
     effectiveDeviceFilter,
+    effectiveProgramFilter,
     isServerPaginated,
   ]);
 
@@ -222,6 +243,15 @@ export function StudentsTable({
     }
   };
 
+  const handleProgramFilter = (val: string) => {
+    if (hasExternalState && onProgramFilterChange) {
+      onProgramFilterChange(val);
+    } else {
+      setLocalProgramFilter(val);
+      setClientPage(1);
+    }
+  };
+
   const resetFilters = () => {
     if (hasExternalState && onResetFilters) {
       onResetFilters();
@@ -231,6 +261,7 @@ export function StudentsTable({
       setLocalProgressFilter('all');
       setLocalGroupFilter('all');
       setLocalDeviceFilter('all');
+      setLocalProgramFilter('all');
       setClientPage(1);
     }
   };
@@ -338,6 +369,18 @@ export function StudentsTable({
             className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
           >
             {DEVICE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={effectiveProgramFilter}
+            onChange={(e) => handleProgramFilter(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          >
+            {PROGRAM_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>

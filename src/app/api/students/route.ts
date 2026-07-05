@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
     const progress = searchParams.get('progress') || '';
     const group = searchParams.get('group') || '';
     const device = searchParams.get('device') || '';
+    const programType = searchParams.get('programType') || '';
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
 
@@ -95,6 +96,10 @@ export async function GET(request: NextRequest) {
       });
     } else if (device) {
       filter.workingDevice = device;
+    }
+
+    if (programType) {
+      filter.programType = programType;
     }
 
     if (andConditions.length > 0) {

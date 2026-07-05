@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { StudentsTable } from '@/components/Students/StudentsTable';
 import { FileUp, Plus, AlertCircle, Sparkles, X, Loader2 } from 'lucide-react';
 import { studentApi } from '@/lib/api-client';
@@ -26,17 +27,20 @@ interface AnalysisResult {
 }
 
 export default function StudentsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [students, setStudents] = useState<StudentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalStudents, setTotalStudents] = useState(0);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [progressFilter, setProgressFilter] = useState('');
-  const [groupFilter, setGroupFilter] = useState('');
-  const [deviceFilter, setDeviceFilter] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') || '');
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
+  const [progressFilter, setProgressFilter] = useState(searchParams.get('progress') || '');
+  const [groupFilter, setGroupFilter] = useState(searchParams.get('group') || '');
+  const [deviceFilter, setDeviceFilter] = useState(searchParams.get('device') || '');
+  const [programFilter, setProgramFilter] = useState(searchParams.get('programType') || '');
   const [selectedAssignment, setSelectedAssignment] = useState<number>(1);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -78,6 +82,7 @@ export default function StudentsPage() {
             device: deviceFilter === 'all' ? '' : deviceFilter,
             group: groupFilter === 'all' ? '' : groupFilter,
             progress: progressFilter === 'all' ? '' : progressFilter,
+            programType: programFilter === 'all' ? '' : programFilter,
           }
         );
 
@@ -127,7 +132,21 @@ export default function StudentsPage() {
     };
 
     fetchStudents();
-  }, [currentPage, search, statusFilter, progressFilter, groupFilter, deviceFilter]);
+  }, [currentPage, search, statusFilter, progressFilter, groupFilter, deviceFilter, programFilter]);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set('search', search);
+    if (statusFilter) params.set('status', statusFilter);
+    if (progressFilter) params.set('progress', progressFilter);
+    if (groupFilter) params.set('group', groupFilter);
+    if (deviceFilter) params.set('device', deviceFilter);
+    if (programFilter) params.set('programType', programFilter);
+
+    const query = params.toString();
+    const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    router.replace(nextUrl, { scroll: false });
+  }, [search, statusFilter, progressFilter, groupFilter, deviceFilter, programFilter, router]);
 
   const handleSearchChange = (searchTerm: string) => {
     setSearch(searchTerm);
@@ -154,12 +173,18 @@ export default function StudentsPage() {
     setCurrentPage(1);
   };
 
+  const handleProgramChange = (programType: string) => {
+    setProgramFilter(programType === 'all' ? '' : programType);
+    setCurrentPage(1);
+  };
+
   const handleResetFilters = () => {
     setSearch('');
     setStatusFilter('');
     setProgressFilter('');
     setGroupFilter('');
     setDeviceFilter('');
+    setProgramFilter('');
     setCurrentPage(1);
   };
 
@@ -173,6 +198,7 @@ export default function StudentsPage() {
       if (progressFilter) params.set('progress', progressFilter);
       if (groupFilter) params.set('group', groupFilter);
       if (deviceFilter) params.set('device', deviceFilter);
+      if (programFilter) params.set('programType', programFilter);
 
       const response = await fetch(`/api/export/call-list?${params.toString()}`);
 
@@ -540,6 +566,8 @@ export default function StudentsPage() {
         onGroupFilterChange={handleGroupChange}
         deviceFilter={deviceFilter || 'all'}
         onDeviceFilterChange={handleDeviceChange}
+        programFilter={programFilter || 'all'}
+        onProgramFilterChange={handleProgramChange}
         onResetFilters={handleResetFilters}
         onExportFiltered={handleExportFiltered}
         isExporting={isExporting}

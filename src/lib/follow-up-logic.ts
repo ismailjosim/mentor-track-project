@@ -3,6 +3,7 @@ import CallLog from '@/models/CallLog';
 import FollowUp from '@/models/FollowUp';
 import Student from '@/models/Student';
 import { Settings } from '@/models/Settings';
+import { getMissedReleasedAssignmentCount, getStatusFromMissedCount } from '@/lib/student-progress';
 
 const FOLLOW_UP_DAYS = 7; // Default days for follow-up after a call
 
@@ -14,18 +15,8 @@ const parseAssignmentNumber = (assignment: string | undefined | null) => {
   return Number.isNaN(assignmentNumber) ? 1 : assignmentNumber;
 };
 
-const isAssignmentSubmitted = (assignment: any) =>
-  assignment?.status === 'SUBMITTED' || assignment?.status === 'COMPLETED';
-
-const getMissedReleasedAssignmentCount = (assignments: any[] = [], currentAssignment: number) =>
-  Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
-    const assignment = assignments.find((item) => item.assignmentNumber === assignmentNumber);
-
-    return !isAssignmentSubmitted(assignment);
-  }).length;
-
 const getQueueStatusFromMissedCount = (missedCount: number) =>
-  missedCount >= 2 ? 'At Risk' : 'Behind';
+  getStatusFromMissedCount(missedCount);
 
 /**
  * Calculate next follow-up date from a given date

@@ -5,7 +5,8 @@ export type CallLogStatus =
   | 'NOT_RECEIVED'
   | 'PHONE_OFF'
   | 'SWITCHED_OFF'
-  | 'FOREIGN_NUMBER';
+  | 'FOREIGN_NUMBER'
+  | 'BUSY';
 
 export interface CallLogDocument {
   _id?: string;
@@ -52,9 +53,9 @@ const CallLogSchema = new Schema<CallLogDocumentWithMongoose>(
     status: {
       type: String,
       enum: {
-        values: ['RECEIVED', 'NOT_RECEIVED', 'PHONE_OFF', 'SWITCHED_OFF', 'FOREIGN_NUMBER'],
+        values: ['RECEIVED', 'NOT_RECEIVED', 'PHONE_OFF', 'SWITCHED_OFF', 'FOREIGN_NUMBER', 'BUSY'],
         message:
-          'Status must be one of: RECEIVED, NOT_RECEIVED, PHONE_OFF, SWITCHED_OFF, FOREIGN_NUMBER',
+          'Status must be one of: RECEIVED, NOT_RECEIVED, PHONE_OFF, SWITCHED_OFF, FOREIGN_NUMBER, BUSY',
       },
       required: [true, 'Call status is required'],
     },

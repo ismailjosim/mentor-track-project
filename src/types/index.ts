@@ -4,6 +4,7 @@
 export type AgeRange = '16-17' | '18-19' | '20-25' | '26-30' | '31-40' | '41-50' | '50+';
 export type WorkingDevice = 'Laptop' | 'Desktop' | 'Mobile';
 export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed';
+export type ProgramType = 'EJP' | 'SCIC' | 'Both' | 'Other';
 export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED';
 export type LastCompletedAssignment =
   | 'A-01'
@@ -26,8 +27,10 @@ export type CallLogStatus =
 export type Priority = 'low' | 'medium' | 'high';
 
 export interface StudentAssignment {
-  assignment: number;
+  assignment?: number;
+  assignmentNumber?: number;
   status: AssignmentStatus;
+  marks?: number;
   submittedDate?: Date;
   completedDate?: Date;
 }
@@ -89,6 +92,9 @@ export interface StudentWithRelations {
   currentStatus?: StudentStatus;
   lastCompletedAssignment?: LastCompletedAssignment;
   mentorshipJoiningStatus?: boolean;
+  programType?: ProgramType;
+  scicMarks?: number;
+  scicConfirmed?: boolean;
   callLogs?: any[];
   assignments?: StudentAssignment[];
   followUps?: any[];

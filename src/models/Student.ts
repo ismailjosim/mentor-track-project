@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export type AgeRange = '16-17' | '18-19' | '20-25' | '26-30' | '31-40' | '41-50' | '50+';
 export type WorkingDevice = 'Laptop' | 'Desktop' | 'Mobile';
 export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed';
+export type ProgramType = 'EJP' | 'SCIC' | 'Both' | 'Other';
 export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED';
 export type LastCompletedAssignment =
   | 'A-01'
@@ -20,6 +21,7 @@ export type LastCompletedAssignment =
 export interface StudentAssignment {
   assignmentNumber: number; // 1-10
   status: AssignmentStatus; // PENDING, SUBMITTED, COMPLETED
+  marks?: number; // Optional marks for the assignment/SCIC confirmation
   date?: Date; // Submission/Completion date
 }
 
@@ -52,6 +54,9 @@ export interface StudentDocument {
   currentStatus?: StudentStatus;
   lastCompletedAssignment?: LastCompletedAssignment;
   mentorshipJoiningStatus?: boolean;
+  programType?: ProgramType;
+  scicMarks?: number;
+  scicConfirmed?: boolean;
 
   // Relations
   callLogs?: string[];
@@ -146,6 +151,19 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
       type: Boolean,
       default: false,
     },
+    programType: {
+      type: String,
+      enum: ['EJP', 'SCIC', 'Both', 'Other'],
+    },
+    scicMarks: {
+      type: Number,
+      min: 0,
+      max: 100,
+    },
+    scicConfirmed: {
+      type: Boolean,
+      default: false,
+    },
 
     // Relations
     callLogs: [
@@ -166,6 +184,11 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
           type: String,
           enum: ['PENDING', 'SUBMITTED', 'COMPLETED'],
           default: 'PENDING',
+        },
+        marks: {
+          type: Number,
+          min: 0,
+          max: 100,
         },
         date: Date,
       },

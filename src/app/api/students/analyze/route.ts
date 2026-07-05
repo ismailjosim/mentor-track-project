@@ -7,33 +7,11 @@ import { revalidateCacheTags } from '@/lib/server-cache';
 import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
-
-const formatAssignmentKey = (assignmentNumber: number) =>
-  `A-${String(assignmentNumber).padStart(2, '0')}`;
-
-const parseAssignmentNumber = (assignment: string | undefined) => {
-  if (!assignment) return null;
-
-  const assignmentNumber = parseInt(assignment.split('-')[1], 10);
-
-  return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
-};
-
-const isAssignmentSubmitted = (assignment: any) =>
-  assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
-
-const getMissedReleasedAssignmentCount = (assignments: any[] = [], currentAssignment: number) =>
-  Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
-    const assignment = assignments.find((item: any) => item.assignmentNumber === assignmentNumber);
-
-    return !isAssignmentSubmitted(assignment);
-  }).length;
-
-const getStatusFromMissedCount = (missedCount: number) => {
-  if (missedCount === 0) return 'On Track';
-  if (missedCount === 1) return 'Behind';
-  return 'At Risk';
-};
+import {
+  formatAssignmentKey,
+  parseAssignmentNumber,
+  resolveStudentProgress,
+} from '@/lib/student-progress';
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,18 +55,18 @@ export async function POST(request: NextRequest) {
           (a: any) => a.assignmentNumber === assignmentNumber
         );
 
-        const isCompleted = isAssignmentSubmitted(assignment);
-        const missedAssignmentCount = getMissedReleasedAssignmentCount(
-          student.assignments,
-          assignmentNumber
-        );
+        const isCompleted =
+          assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
         const previousStatus = student.currentStatus || 'On Track';
-        const newStatus =
-          previousStatus === 'Dropped'
-            ? 'Dropped'
-            : getStatusFromMissedCount(missedAssignmentCount);
-        const updateData: Record<string, string> = {
+        const { nextStatus, lastCompletedAssignment, missedAssignmentCount } =
+          resolveStudentProgress(
+            { ...student, assignments: student.assignments || [] },
+            assignmentNumber
+          );
+        const newStatus = previousStatus === 'Dropped' ? 'Dropped' : nextStatus;
+        const updateData: Record<string, string | undefined> = {
           currentStatus: newStatus,
+          lastCompletedAssignment,
         };
 
         if (isCompleted) {

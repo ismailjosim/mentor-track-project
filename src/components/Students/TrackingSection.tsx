@@ -174,7 +174,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
           </h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 bg-muted/30 rounded-lg border">
-              <p className="text-xs text-muted-foreground mb-1">Assignments Completed</p>
+              <p className="text-xs text-muted-foreground mb-1">Assignments Submitted</p>
               <p className="text-2xl font-bold">
                 {completedCount}/{totalAssignments}
               </p>
@@ -268,25 +268,40 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Assignment Status
           </h3>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             {Array.from({ length: 10 }, (_, i) => {
               const assignmentNum = i + 1;
               const assignment = assignments.find((a) => a.assignmentNumber === assignmentNum);
               const isCompleted =
                 assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
               const isCurrent = assignmentNum === currentAssignmentNumber;
+              const marksText = assignment?.marks !== undefined ? ` • ${assignment.marks}` : '';
 
               return (
                 <div
                   key={assignmentNum}
-                  className={`flex items-center justify-center h-10 rounded border font-semibold text-xs transition-colors ${
+                  className={`flex flex-col items-center justify-center min-h-14 rounded border px-2 py-2 font-semibold text-xs transition-colors ${
                     isCompleted ? 'status-success' : isCurrent ? 'status-warning' : 'status-neutral'
                   }`}
                   title={
-                    isCompleted ? 'Completed' : isCurrent ? 'Current Assignment' : 'Not Started'
+                    isCompleted
+                      ? `Submitted${marksText}`
+                      : isCurrent
+                        ? 'Current Assignment'
+                        : 'Not Started'
                   }
                 >
-                  A-{String(assignmentNum).padStart(2, '0')}
+                  <span>A-{String(assignmentNum).padStart(2, '0')}</span>
+                  <span className="text-[10px] font-medium opacity-80">
+                    {assignment?.status === 'COMPLETED'
+                      ? 'Completed'
+                      : assignment?.status === 'SUBMITTED'
+                        ? 'Submitted'
+                        : isCurrent
+                          ? 'Current'
+                          : 'Pending'}
+                    {marksText}
+                  </span>
                 </div>
               );
             })}

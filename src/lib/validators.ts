@@ -23,13 +23,15 @@ export type CallLogStatus =
   | 'NOT_RECEIVED'
   | 'PHONE_OFF'
   | 'SWITCHED_OFF'
-  | 'FOREIGN_NUMBER';
+  | 'FOREIGN_NUMBER'
+  | 'BUSY';
 
 // ==================== ASSIGNMENT SCHEMAS ====================
 
 export const StudentAssignmentSchema = z.object({
   assignment: z.number().int().min(1).max(10),
   status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED']).default('PENDING'),
+  marks: z.number().min(0).max(100).optional(),
   submittedDate: z.coerce.date().optional(),
   completedDate: z.coerce.date().optional(),
 });
@@ -56,6 +58,9 @@ export const StudentCreateSchema = z.object({
     .enum(['A-01', 'A-02', 'A-03', 'A-04', 'A-05', 'A-06', 'A-07', 'A-08', 'A-09', 'A-10', 'None'])
     .optional(),
   mentorshipJoiningStatus: z.boolean().optional(),
+  programType: z.enum(['EJP', 'SCIC', 'Both', 'Other']).optional(),
+  scicMarks: z.number().min(0).max(100).optional(),
+  scicConfirmed: z.boolean().optional(),
   assignments: z.array(StudentAssignmentSchema).optional(),
   comments: z.array(z.string()).optional(),
 });
@@ -67,6 +72,7 @@ export const StudentUpdateSchema = StudentCreateSchema.partial();
 export const UpdateStudentAssignmentSchema = z.object({
   assignmentNumber: z.number().int().min(1).max(10),
   status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED']).optional(),
+  marks: z.number().min(0).max(100).optional(),
   date: z.coerce.date().optional(),
 });
 
@@ -98,7 +104,14 @@ export const AssignmentBulkSubmitSchema = BulkAssignmentSubmitSchema;
 
 export const CallLogCreateSchema = z.object({
   date: z.coerce.date().refine((date) => date <= new Date(), 'Date cannot be in the future'),
-  status: z.enum(['RECEIVED', 'NOT_RECEIVED', 'PHONE_OFF', 'SWITCHED_OFF', 'FOREIGN_NUMBER']),
+  status: z.enum([
+    'RECEIVED',
+    'NOT_RECEIVED',
+    'PHONE_OFF',
+    'SWITCHED_OFF',
+    'FOREIGN_NUMBER',
+    'BUSY',
+  ]),
   notes: z.string().optional(),
   calledBy: z.string().optional(),
   issues: z.string().optional(),

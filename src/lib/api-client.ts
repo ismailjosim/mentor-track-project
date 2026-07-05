@@ -112,6 +112,7 @@ export const studentApi = {
       device?: string;
       group?: string;
       progress?: string;
+      programType?: string;
     } = {}
   ) => {
     const params = new URLSearchParams();
@@ -124,9 +125,16 @@ export const studentApi = {
     if (filters.progress) params.set('progress', filters.progress);
     if (filters.group) params.set('group', filters.group);
     if (filters.device) params.set('device', filters.device);
+    if (filters.programType) params.set('programType', filters.programType);
 
     const shouldCache =
-      page === 1 && !search && !status && !filters.progress && !filters.group && !filters.device;
+      page === 1 &&
+      !search &&
+      !status &&
+      !filters.progress &&
+      !filters.group &&
+      !filters.device &&
+      !filters.programType;
 
     return apiClient.get(`/api/students?${params.toString()}`, {
       cacheTags: shouldCache ? [CACHE_TAGS.STUDENT_LIST] : undefined,

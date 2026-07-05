@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     const progress = searchParams.get('progress') || '';
     const group = searchParams.get('group') || '';
     const device = searchParams.get('device') || '';
+    const programType = searchParams.get('programType') || '';
 
     const filter: any = { ownerId: userId };
     const andConditions: any[] = [];
@@ -77,6 +78,10 @@ export async function GET(request: NextRequest) {
       });
     } else if (device && device !== 'all') {
       filter.workingDevice = device;
+    }
+
+    if (programType && programType !== 'all') {
+      filter.programType = programType;
     }
 
     if (andConditions.length > 0) {

@@ -16,30 +16,7 @@ import { revalidateCacheTags } from '@/lib/server-cache';
 import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
-
-const parseAssignmentNumber = (assignment: string | undefined) => {
-  if (!assignment) return null;
-
-  const assignmentNumber = parseInt(assignment.split('-')[1], 10);
-
-  return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
-};
-
-const isAssignmentSubmitted = (assignment: any) =>
-  assignment?.status === 'SUBMITTED' || assignment?.status === 'COMPLETED';
-
-const getMissedReleasedAssignmentCount = (assignments: any[] = [], currentAssignment: number) =>
-  Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
-    const assignment = assignments.find((item) => item.assignmentNumber === assignmentNumber);
-
-    return !isAssignmentSubmitted(assignment);
-  }).length;
-
-const getStatusFromMissedCount = (missedCount: number) => {
-  if (missedCount === 0) return 'On Track';
-  if (missedCount === 1) return 'Behind';
-  return 'At Risk';
-};
+import { parseAssignmentNumber, resolveStudentProgress } from '@/lib/student-progress';
 
 const syncStudentProgressForAssignment = async (
   student: any,
@@ -67,12 +44,13 @@ const syncStudentProgressForAssignment = async (
     return;
   }
 
-  const missedAssignmentCount = getMissedReleasedAssignmentCount(
-    student.assignments,
+  const { nextStatus, lastCompletedAssignment } = resolveStudentProgress(
+    student,
     currentAssignmentNumber
   );
 
-  student.currentStatus = getStatusFromMissedCount(missedAssignmentCount);
+  student.currentStatus = nextStatus;
+  student.lastCompletedAssignment = lastCompletedAssignment;
 };
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

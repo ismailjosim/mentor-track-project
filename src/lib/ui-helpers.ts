@@ -45,6 +45,8 @@ export function getCallLogStatusLabel(status: CallLogStatus): string {
       return 'Switched Off';
     case 'FOREIGN_NUMBER':
       return 'Foreign Number';
+    case 'BUSY':
+      return 'Busy';
     default:
       return status;
   }
@@ -61,6 +63,8 @@ export function getCallLogStatusClass(status: CallLogStatus): string {
       return 'status-danger';
     case 'FOREIGN_NUMBER':
       return 'bg-secondary text-secondary-foreground';
+    case 'BUSY':
+      return 'status-warning';
     default:
       return 'status-neutral';
   }

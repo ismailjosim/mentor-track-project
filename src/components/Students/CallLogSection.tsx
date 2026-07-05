@@ -3,6 +3,7 @@
 
 import { useState } from 'react';
 import { Phone, Plus, ChevronDown, ChevronUp, Trash2, AlertCircle } from 'lucide-react';
+import { authClient } from '@/lib/auth-client';
 import { format } from 'date-fns';
 import type { CallLog } from '@/interfaces/callLog.interface';
 import { getCallLogStatusLabel, getCallLogStatusClass } from '@/lib/ui-helpers';
@@ -20,6 +21,7 @@ const CALL_STATUSES: CallLog['status'][] = [
   'PHONE_OFF',
   'SWITCHED_OFF',
   'FOREIGN_NUMBER',
+  'BUSY',
 ];
 
 export function CallLogSection({ callLogs: initialCallLogs, studentId }: CallLogSectionProps) {
@@ -29,13 +31,14 @@ export function CallLogSection({ callLogs: initialCallLogs, studentId }: CallLog
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { data: session } = authClient.useSession();
 
   const [form, setForm] = useState({
     status: 'RECEIVED' as CallLog['status'],
     issues: '',
     promised: '',
     notes: '',
-    calledBy: '',
+    calledBy: session?.user?.name || '',
   });
 
   const latestCall = callLogs[0];
@@ -70,7 +73,13 @@ export function CallLogSection({ callLogs: initialCallLogs, studentId }: CallLog
       toast.success('Call log and next follow-up created successfully');
 
       setShowForm(false);
-      setForm({ status: 'RECEIVED', issues: '', promised: '', notes: '', calledBy: '' });
+      setForm({
+        status: 'RECEIVED',
+        issues: '',
+        promised: '',
+        notes: '',
+        calledBy: session?.user?.name || '',
+      });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create call log';
       setError(message);
