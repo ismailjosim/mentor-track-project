@@ -1,10 +1,5 @@
 export type CallLogStatus =
-  | 'RECEIVED'
-  | 'NOT_RECEIVED'
-  | 'PHONE_OFF'
-  | 'SWITCHED_OFF'
-  | 'FOREIGN_NUMBER'
-  | 'BUSY';
+  'RECEIVED' | 'NOT_RECEIVED' | 'PHONE_OFF' | 'SWITCHED_OFF' | 'FOREIGN_NUMBER' | 'BUSY';
 
 export interface CallLog {
   _id?: string;

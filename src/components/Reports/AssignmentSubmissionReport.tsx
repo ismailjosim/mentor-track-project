@@ -62,8 +62,8 @@ export function AssignmentSubmissionReport({ data }: AssignmentSubmissionReportP
           Assignment Submission Trend
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          এখন পর্যন্ত কতজন স্টুডেন্ট প্রতিটি অ্যাসাইনমেন্ট সাবমিট করেছে, এবং পূর্ববর্তী অ্যাসাইনমেন্টের
-          তুলনায় পার্থক্য
+          এখন পর্যন্ত কতজন স্টুডেন্ট প্রতিটি অ্যাসাইনমেন্ট সাবমিট করেছে, এবং পূর্ববর্তী
+          অ্যাসাইনমেন্টের তুলনায় পার্থক্য
         </p>
       </div>
 
@@ -76,7 +76,10 @@ export function AssignmentSubmissionReport({ data }: AssignmentSubmissionReportP
               stroke="var(--muted-foreground)"
               tick={{ fill: 'var(--foreground)', fontSize: 13, fontWeight: 500 }}
             />
-            <YAxis stroke="var(--muted-foreground)" tick={{ fill: 'var(--foreground)', fontSize: 12 }} />
+            <YAxis
+              stroke="var(--muted-foreground)"
+              tick={{ fill: 'var(--foreground)', fontSize: 12 }}
+            />
             <Tooltip
               contentStyle={{
                 backgroundColor: 'var(--popover)',

@@ -7,23 +7,9 @@ export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Com
 export type ProgramType = 'EJP' | 'SCIC' | 'Both' | 'Other';
 export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED';
 export type LastCompletedAssignment =
-  | 'A-01'
-  | 'A-02'
-  | 'A-03'
-  | 'A-04'
-  | 'A-05'
-  | 'A-06'
-  | 'A-07'
-  | 'A-08'
-  | 'A-09'
-  | 'A-10'
-  | 'None';
+  'A-01' | 'A-02' | 'A-03' | 'A-04' | 'A-05' | 'A-06' | 'A-07' | 'A-08' | 'A-09' | 'A-10' | 'None';
 export type CallLogStatus =
-  | 'RECEIVED'
-  | 'NOT_RECEIVED'
-  | 'PHONE_OFF'
-  | 'SWITCHED_OFF'
-  | 'FOREIGN_NUMBER';
+  'RECEIVED' | 'NOT_RECEIVED' | 'PHONE_OFF' | 'SWITCHED_OFF' | 'FOREIGN_NUMBER';
 export type Priority = 'low' | 'medium' | 'high';
 
 export interface StudentAssignment {

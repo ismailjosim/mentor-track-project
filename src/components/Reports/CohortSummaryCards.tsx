@@ -50,7 +50,10 @@ export function CohortSummaryCards({ data }: CohortSummaryCardsProps) {
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             {data.perAssignment.map(({ assignmentKey, submitted }) => (
-              <div key={assignmentKey} className="rounded-xl border border-border/70 p-3 text-center">
+              <div
+                key={assignmentKey}
+                className="rounded-xl border border-border/70 p-3 text-center"
+              >
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {assignmentKey}
                 </p>

@@ -1,15 +1,7 @@
 'use client';
 
 import type { CallRoundsReportData } from '@/types/reports';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface CallRoundsReportProps {
   data: CallRoundsReportData;
@@ -83,7 +75,12 @@ export function CallRoundsReport({ data }: CallRoundsReportProps) {
                   color: 'var(--popover-foreground)',
                 }}
               />
-              <Bar dataKey="studentsReached" radius={[8, 8, 0, 0]} fill="var(--chart-2)" name="Students reached" />
+              <Bar
+                dataKey="studentsReached"
+                radius={[8, 8, 0, 0]}
+                fill="var(--chart-2)"
+                name="Students reached"
+              />
             </BarChart>
           </ResponsiveContainer>
         ) : (

@@ -3,17 +3,7 @@ export type WorkingDevice = 'Laptop' | 'Desktop' | 'Mobile';
 export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed';
 export type ProgramType = 'EJP' | 'SCIC' | 'Both' | 'Other';
 export type LastCompletedAssignment =
-  | 'A-01'
-  | 'A-02'
-  | 'A-03'
-  | 'A-04'
-  | 'A-05'
-  | 'A-06'
-  | 'A-07'
-  | 'A-08'
-  | 'A-09'
-  | 'A-10'
-  | 'None';
+  'A-01' | 'A-02' | 'A-03' | 'A-04' | 'A-05' | 'A-06' | 'A-07' | 'A-08' | 'A-09' | 'A-10' | 'None';
 
 export interface Student {
   _id?: string;

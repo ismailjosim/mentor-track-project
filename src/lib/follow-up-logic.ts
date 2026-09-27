@@ -197,7 +197,7 @@ export const getCallQueue = async (limit: number = 50, ownerId: string) => {
       currentStatus: {
         $nin: ['Dropped', 'Completed'],
       },
-    });
+    }).lean();
 
     const students = candidates.filter((student: any) => {
       const currentAssignment = student.assignments?.find(
@@ -207,55 +207,92 @@ export const getCallQueue = async (limit: number = 50, ownerId: string) => {
       return !isAssignmentSubmitted(currentAssignment);
     });
 
-    await Promise.all(
-      students.map(async (student: any) => {
-        const missedCount = getMissedReleasedAssignmentCount(
+    // Batch status updates using bulkWrite
+    const bulkOps: any[] = [];
+    for (const student of students) {
+      const missedCount = getMissedReleasedAssignmentCount(
+        student.assignments,
+        currentAssignmentNumber
+      );
+      const nextStatus = getQueueStatusFromMissedCount(missedCount);
+
+      if (student.currentStatus !== nextStatus) {
+        student.currentStatus = nextStatus;
+        bulkOps.push({
+          updateOne: {
+            filter: { _id: student._id },
+            update: { $set: { currentStatus: nextStatus } },
+          },
+        });
+      }
+    }
+
+    if (bulkOps.length > 0) {
+      await Student.bulkWrite(bulkOps);
+    }
+
+    if (students.length === 0) {
+      return [];
+    }
+
+    // Batch query CallLogs and FollowUps in 3 queries instead of 3 * N queries
+    const studentIds = students.map((s: any) => s._id);
+
+    const [lastCalls, pendingFollowUps, overdueFollowUps] = await Promise.all([
+      CallLog.aggregate([
+        { $match: { studentId: { $in: studentIds }, ownerId } },
+        { $sort: { date: -1 } },
+        {
+          $group: {
+            _id: '$studentId',
+            doc: { $first: '$$ROOT' },
+          },
+        },
+      ]),
+      FollowUp.find({
+        studentId: { $in: studentIds },
+        ownerId,
+        status: 'pending',
+      }).lean(),
+      FollowUp.find({
+        studentId: { $in: studentIds },
+        ownerId,
+        date: { $lt: now },
+        status: { $ne: 'completed' },
+      }).lean(),
+    ]);
+
+    const lastCallMap = new Map<string, any>(
+      lastCalls.map((item: any) => [item._id.toString(), item.doc])
+    );
+    const pendingFollowUpMap = new Map<string, any>(
+      pendingFollowUps.map((item: any) => [item.studentId?.toString(), item])
+    );
+    const overdueFollowUpMap = new Map<string, any>(
+      overdueFollowUps.map((item: any) => [item.studentId?.toString(), item])
+    );
+
+    const queue = students.map((student: any) => {
+      const sId = student._id.toString();
+      const lastCall = lastCallMap.get(sId) || null;
+      const nextFollowUp = pendingFollowUpMap.get(sId) || null;
+      const overdueFollowUp = overdueFollowUpMap.get(sId) || null;
+
+      return {
+        ...student,
+        lastCall,
+        nextFollowUp,
+        overdueFollowUp,
+        currentAssignmentNumber,
+        missedAssignmentCount: getMissedReleasedAssignmentCount(
           student.assignments,
           currentAssignmentNumber
-        );
-        const nextStatus = getQueueStatusFromMissedCount(missedCount);
+        ),
+        priority: student.currentStatus === 'At Risk' ? 'high' : 'normal',
+      };
+    });
 
-        if (student.currentStatus !== nextStatus) {
-          student.currentStatus = nextStatus;
-          await student.save();
-        }
-      })
-    );
-
-    // Enrich with last call and follow-up info
-    const queue = await Promise.all(
-      students.map(async (student) => {
-        const lastCall = await CallLog.findOne({ studentId: student._id, ownerId }).sort({
-          date: -1,
-        });
-        const nextFollowUp = await FollowUp.findOne({
-          studentId: student._id,
-          ownerId,
-          status: 'pending',
-        });
-        const overdueFollowUp = await FollowUp.findOne({
-          studentId: student._id,
-          ownerId,
-          date: { $lt: now },
-          status: { $ne: 'completed' },
-        });
-
-        return {
-          ...student.toObject(),
-          lastCall,
-          nextFollowUp,
-          overdueFollowUp,
-          currentAssignmentNumber,
-          missedAssignmentCount: getMissedReleasedAssignmentCount(
-            student.assignments,
-            currentAssignmentNumber
-          ),
-          priority: student.currentStatus === 'At Risk' ? 'high' : 'normal',
-        };
-      })
-    );
-
-    const sortedQueue = queue.sort((a, b) => {
+    const sortedQueue = queue.sort((a: any, b: any) => {
       if (a.priority !== b.priority) {
         return a.priority === 'high' ? -1 : 1;
       }
@@ -274,6 +311,33 @@ export const getCallQueue = async (limit: number = 50, ownerId: string) => {
     return limit > 0 ? sortedQueue.slice(0, limit) : sortedQueue;
   } catch (error) {
     throw new Error(`Failed to get call queue: ${error}`);
+  }
+};
+
+/**
+ * Fast count of students needing calls without enrichment
+ */
+export const getCallQueueCount = async (ownerId: string): Promise<number> => {
+  try {
+    const settings = await Settings.findOne({ ownerId }).select('currentAssignment').lean();
+    const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
+
+    const candidates = await Student.find({
+      ownerId,
+      currentStatus: { $nin: ['Dropped', 'Completed'] },
+    })
+      .select('assignments')
+      .lean();
+
+    return candidates.filter((student: any) => {
+      const currentAssignment = student.assignments?.find(
+        (assignment: any) => assignment.assignmentNumber === currentAssignmentNumber
+      );
+      return !isAssignmentSubmitted(currentAssignment);
+    }).length;
+  } catch (error) {
+    console.error('Failed to get call queue count:', error);
+    return 0;
   }
 };
 

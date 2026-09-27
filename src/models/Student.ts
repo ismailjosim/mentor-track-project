@@ -6,17 +6,7 @@ export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Com
 export type ProgramType = 'EJP' | 'SCIC' | 'Both' | 'Other';
 export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED';
 export type LastCompletedAssignment =
-  | 'A-01'
-  | 'A-02'
-  | 'A-03'
-  | 'A-04'
-  | 'A-05'
-  | 'A-06'
-  | 'A-07'
-  | 'A-08'
-  | 'A-09'
-  | 'A-10'
-  | 'None';
+  'A-01' | 'A-02' | 'A-03' | 'A-04' | 'A-05' | 'A-06' | 'A-07' | 'A-08' | 'A-09' | 'A-10' | 'None';
 
 export interface StudentAssignment {
   assignmentNumber: number; // 1-10
@@ -214,6 +204,9 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
 // Create indexes for optimal performance
 StudentSchema.index({ ownerId: 1, email: 1 }, { unique: true });
 StudentSchema.index({ ownerId: 1, currentStatus: 1 });
+StudentSchema.index({ ownerId: 1, createdAt: -1 });
+StudentSchema.index({ ownerId: 1, currentStatus: 1, createdAt: -1 });
+StudentSchema.index({ ownerId: 1, lastContactedAt: 1 });
 StudentSchema.index({ createdAt: -1 });
 
 export default mongoose.models.Student ||

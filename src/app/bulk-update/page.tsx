@@ -1,5 +1,11 @@
+import type { Metadata } from 'next';
 import { BulkUpdateHelp } from '@/components/bulk-update/BulkUpdateHelp';
 import { BulkUpdateTabs } from '@/components/bulk-update/BulkUpdateTabs';
+
+export const metadata: Metadata = {
+  title: 'Bulk Updates | Mentor Track',
+  description: 'Update multiple student records or assignments via batch data entry.',
+};
 
 export default function BulkUpdatePage() {
   return (

@@ -40,9 +40,7 @@ export function ReportOptionsPanel({
               type="button"
               onClick={() => onToggleSection(key)}
               className={`w-full flex items-start gap-3 rounded-xl border p-4 text-left transition-colors ${
-                isSelected
-                  ? 'border-primary/40 bg-primary/5'
-                  : 'border-border/70 hover:bg-muted/50'
+                isSelected ? 'border-primary/40 bg-primary/5' : 'border-border/70 hover:bg-muted/50'
               }`}
             >
               {isSelected ? (

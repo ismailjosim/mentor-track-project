@@ -6,25 +6,10 @@ export type AgeRange = '16-17' | '18-19' | '20-25' | '26-30' | '31-40' | '41-50'
 export type WorkingDevice = 'Laptop' | 'Desktop' | 'Mobile';
 export type StudentStatus = 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed';
 export type LastCompletedAssignment =
-  | 'A-01'
-  | 'A-02'
-  | 'A-03'
-  | 'A-04'
-  | 'A-05'
-  | 'A-06'
-  | 'A-07'
-  | 'A-08'
-  | 'A-09'
-  | 'A-10'
-  | 'None';
+  'A-01' | 'A-02' | 'A-03' | 'A-04' | 'A-05' | 'A-06' | 'A-07' | 'A-08' | 'A-09' | 'A-10' | 'None';
 export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED';
 export type CallLogStatus =
-  | 'RECEIVED'
-  | 'NOT_RECEIVED'
-  | 'PHONE_OFF'
-  | 'SWITCHED_OFF'
-  | 'FOREIGN_NUMBER'
-  | 'BUSY';
+  'RECEIVED' | 'NOT_RECEIVED' | 'PHONE_OFF' | 'SWITCHED_OFF' | 'FOREIGN_NUMBER' | 'BUSY';
 
 // ==================== ASSIGNMENT SCHEMAS ====================
 

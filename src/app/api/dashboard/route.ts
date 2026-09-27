@@ -26,9 +26,8 @@ export async function GET() {
     const [students, settings] = await Promise.all([
       Student.find({ ownerId: userId })
         .select(
-          '_id name email phone currentStatus lastCompletedAssignment assignments lastContactedAt createdAt'
+          '_id name email phone currentStatus lastCompletedAssignment assignments lastContactedAt'
         )
-        .sort({ createdAt: -1 })
         .lean(),
       Settings.findOne({ ownerId: userId }).select('currentAssignment').lean(),
     ]);
@@ -60,7 +59,12 @@ export async function GET() {
         }).length;
 
         return {
-          ...student,
+          _id: student._id,
+          name: student.name,
+          email: student.email,
+          phone: student.phone,
+          lastCompletedAssignment: student.lastCompletedAssignment,
+          lastContactedAt: student.lastContactedAt,
           currentStatus: missedCount >= 2 ? 'At Risk' : 'Behind',
           missedAssignmentCount: missedCount,
         };
@@ -79,9 +83,16 @@ export async function GET() {
           .length || 0;
     }
 
-    const failingStudents = students.filter((student: any) =>
-      ['Behind', 'At Risk'].includes(student.currentStatus)
-    );
+    const failingStudents = students
+      .filter((student: any) => ['Behind', 'At Risk'].includes(student.currentStatus))
+      .map((student: any) => ({
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        phone: student.phone,
+        currentStatus: student.currentStatus,
+        lastCompletedAssignment: student.lastCompletedAssignment,
+      }));
 
     const stats = {
       totalStudents: students.length,
@@ -101,10 +112,16 @@ export async function GET() {
       pendingFollowUps: callQueue.length,
     };
 
+    // Trim students down to only what is needed for assignment stats charts
+    const lightweightStudents = students.map((s: any) => ({
+      _id: s._id,
+      lastCompletedAssignment: s.lastCompletedAssignment,
+    }));
+
     return NextResponse.json(
       createResponse(200, 'Dashboard overview fetched successfully', {
         stats,
-        students,
+        students: lightweightStudents,
         failingStudents: failingStudents.slice(0, PAGE_SIZE),
         failingPagination: {
           page: 1,

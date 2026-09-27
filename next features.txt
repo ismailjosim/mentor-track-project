@@ -29,4 +29,3 @@
 - Cross-tab cache synchronization (optional enhancement)
 - Offline support with service workers (optional enhancement)
 
-

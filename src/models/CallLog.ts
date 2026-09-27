@@ -1,12 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
 export type CallLogStatus =
-  | 'RECEIVED'
-  | 'NOT_RECEIVED'
-  | 'PHONE_OFF'
-  | 'SWITCHED_OFF'
-  | 'FOREIGN_NUMBER'
-  | 'BUSY';
+  'RECEIVED' | 'NOT_RECEIVED' | 'PHONE_OFF' | 'SWITCHED_OFF' | 'FOREIGN_NUMBER' | 'BUSY';
 
 export interface CallLogDocument {
   _id?: string;

@@ -3,15 +3,9 @@ import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
 
 export type ReportSection =
-  | 'assignmentSubmission'
-  | 'callRounds'
-  | 'assignmentWiseCalls'
-  | 'summary';
+  'assignmentSubmission' | 'callRounds' | 'assignmentWiseCalls' | 'summary';
 
-const ASSIGNMENT_KEYS = Array.from(
-  { length: 10 },
-  (_, i) => `A-${String(i + 1).padStart(2, '0')}`
-);
+const ASSIGNMENT_KEYS = Array.from({ length: 10 }, (_, i) => `A-${String(i + 1).padStart(2, '0')}`);
 
 /**
  * 1) Assignment submission report
