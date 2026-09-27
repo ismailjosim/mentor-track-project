@@ -15,7 +15,7 @@ export function ImportSuccessSection({ preview, onReset }: ImportSuccessSectionP
     <div className="space-y-6">
       {/* Success message */}
       <div className="flex items-center gap-3 rounded-xl border border-success-border bg-success-soft p-4">
-        <CheckCircle className="w-5 h-5 flex-shrink-0 text-success-foreground" />
+        <CheckCircle className="w-5 h-5 shrink-0 text-success-foreground" />
         <div>
           <h3 className="font-semibold text-success-foreground">Import completed!</h3>
           <p className="mt-1 text-sm text-success-foreground">
