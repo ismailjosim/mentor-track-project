@@ -11,14 +11,39 @@ interface StudentsTableRowProps {
   student: StudentWithRelations;
   onDeleteClick: (id: string, name: string) => void;
   isDeleting: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
-export function StudentsTableRow({ student: s, onDeleteClick, isDeleting }: StudentsTableRowProps) {
+export function StudentsTableRow({
+  student: s,
+  onDeleteClick,
+  isDeleting,
+  isSelected = false,
+  onToggleSelect,
+}: StudentsTableRowProps) {
   const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
   const pct = lastDone * 10;
 
   return (
-    <tr className="hover:bg-muted/20 transition-colors">
+    <tr
+      className={`hover:bg-muted/20 transition-colors ${isSelected ? 'bg-primary/5 hover:bg-primary/8' : ''}`}
+    >
+      {/* Checkbox cell */}
+      {onToggleSelect && (
+        <td className="px-4 py-3 w-10">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(s._id!)}
+            onClick={(e) => e.stopPropagation()}
+            className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+            aria-label={`Select ${s.name}`}
+            id={`select-student-${s._id}`}
+          />
+        </td>
+      )}
+
       <td className="px-6 py-3">
         <div className="flex items-center gap-3">
           <StudentAvatar name={s.name} size="sm" />

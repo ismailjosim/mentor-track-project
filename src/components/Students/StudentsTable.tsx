@@ -3,10 +3,12 @@
 import { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { Trash2, X, CheckSquare } from 'lucide-react';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
 import { StudentsTableFilters } from './StudentsTableFilters';
 import { StudentsTablePagination } from './StudentsTablePagination';
 import { DeleteStudentModal } from './DeleteStudentModal';
+import { BulkDeleteModal } from './BulkDeleteModal';
 import { StudentsTableRow } from './StudentsTableRow';
 import { StudentsTableSkeleton } from './StudentsTableSkeleton';
 import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
@@ -19,6 +21,7 @@ import {
 } from './types';
 
 const columns: ColumnDef<StudentWithRelations>[] = [
+  { id: 'select', header: 'Select' },
   { id: 'student', header: 'Student', accessorKey: 'name' },
   { id: 'progress', header: 'Progress', accessorKey: 'lastCompletedAssignment' },
   { id: 'status', header: 'Status', accessorKey: 'currentStatus' },
@@ -75,6 +78,11 @@ export function StudentsTable({
     studentName?: string;
   }>({ isOpen: false });
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // ── Bulk selection state ─────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
   const effectiveFilters: StudentTableFilters = useMemo(
     () => ({
@@ -194,6 +202,8 @@ export function StudentsTable({
     } else {
       setClientPage(page);
     }
+    // Clear selection on page change
+    setSelectedIds(new Set());
   };
 
   const handleDeleteClick = (studentId: string, studentName: string) => {
@@ -217,6 +227,12 @@ export function StudentsTable({
       }
 
       setDeleteModal({ isOpen: false });
+      // Remove from selection if it was selected
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(deleteModal.studentId!);
+        return next;
+      });
       toast.success('Student deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['students'] });
     } catch (error) {
@@ -225,6 +241,67 @@ export function StudentsTable({
       );
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  // ── Bulk selection helpers ───────────────────────────────────────────────────
+  const pageIds = useMemo(() => paginated.map((s) => s._id!).filter(Boolean), [paginated]);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
+  const somePageSelected = pageIds.some((id) => selectedIds.has(id));
+
+  const handleSelectAll = () => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        // Deselect all on this page
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        // Select all on this page
+        pageIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      const response = await fetch('/api/students/bulk-delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentIds: Array.from(selectedIds) }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to delete students');
+
+      setBulkDeleteModal(false);
+      setSelectedIds(new Set());
+      toast.success(`${data.data?.deleted ?? selectedIds.size} student(s) deleted successfully`);
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+    } catch (error) {
+      toast.error(
+        `Failed to delete students: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -248,6 +325,34 @@ export function StudentsTable({
         hasActiveFilters={hasActiveFilters}
       />
 
+      {/* ── Bulk action toolbar ── */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between gap-4 px-6 py-3 bg-primary/5 border-b border-primary/20">
+          <div className="flex items-center gap-3">
+            <CheckSquare className="w-4 h-4 text-primary" />
+            <span className="text-sm font-semibold text-primary">
+              {selectedIds.size} student{selectedIds.size > 1 ? 's' : ''} selected
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClearSelection}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3.5 h-3.5" />
+              Clear selection
+            </button>
+            <button
+              onClick={() => setBulkDeleteModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground hover:opacity-90 transition-all text-xs font-semibold"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete {selectedIds.size} student{selectedIds.size > 1 ? 's' : ''}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
@@ -255,8 +360,28 @@ export function StudentsTable({
               <tr key={headerGroup.id} className="border-b bg-muted/10">
                 {headerGroup.headers.map((header) => {
                   const id = header.id;
+                  const isSelect = id === 'select';
                   const isStudent = id === 'student';
                   const isAction = id === 'action';
+
+                  if (isSelect) {
+                    return (
+                      <th key={header.id} className="px-4 py-3 w-10">
+                        <input
+                          type="checkbox"
+                          checked={allPageSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = somePageSelected && !allPageSelected;
+                          }}
+                          onChange={handleSelectAll}
+                          className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+                          aria-label="Select all students on this page"
+                          id="select-all-students"
+                        />
+                      </th>
+                    );
+                  }
+
                   return (
                     <th
                       key={header.id}
@@ -283,7 +408,7 @@ export function StudentsTable({
               <StudentsTableSkeleton />
             ) : paginated.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-6 py-14 text-center text-muted-foreground italic">
+                <td colSpan={8} className="px-6 py-14 text-center text-muted-foreground italic">
                   No students found matching your criteria.
                 </td>
               </tr>
@@ -294,6 +419,8 @@ export function StudentsTable({
                   student={s}
                   onDeleteClick={handleDeleteClick}
                   isDeleting={isDeleting}
+                  isSelected={selectedIds.has(s._id!)}
+                  onToggleSelect={handleToggleSelect}
                 />
               ))
             )}
@@ -310,12 +437,22 @@ export function StudentsTable({
         onPageChange={handlePageChange}
       />
 
+      {/* Single delete modal */}
       <DeleteStudentModal
         isOpen={deleteModal.isOpen}
         studentName={deleteModal.studentName}
         isDeleting={isDeleting}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteModal({ isOpen: false })}
+      />
+
+      {/* Bulk delete modal */}
+      <BulkDeleteModal
+        isOpen={bulkDeleteModal}
+        count={selectedIds.size}
+        isDeleting={isBulkDeleting}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setBulkDeleteModal(false)}
       />
     </div>
   );
