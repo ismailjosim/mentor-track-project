@@ -12,6 +12,8 @@ export interface StudentAssignment {
   assignmentNumber: number; // 1-10
   status: AssignmentStatus; // PENDING, SUBMITTED, COMPLETED
   marks?: number; // Optional marks for the assignment/SCIC confirmation
+  /** Which deadline/marks tier was used: 60 (1st deadline), 50 (2nd deadline), 30 (no deadline) */
+  maxMarks?: 30 | 50 | 60;
   date?: Date; // Submission/Completion date
 }
 
@@ -186,6 +188,12 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
           type: Number,
           min: 0,
           max: 100,
+        },
+        /** Which marks-tier the student submitted under: 60 (1st deadline), 50 (2nd deadline), 30 (no deadline) */
+        maxMarks: {
+          type: Number,
+          enum: [30, 50, 60],
+          default: 60,
         },
         date: Date,
       },

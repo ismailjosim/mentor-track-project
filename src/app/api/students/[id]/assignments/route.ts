@@ -165,6 +165,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       assignmentNumber: validatedData.assignmentNumber,
       status: validatedData.status || 'PENDING',
       marks: validatedData.marks,
+      maxMarks: (validatedData as any).maxMarks,
       date: validatedData.date,
     };
 
@@ -237,6 +238,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const normalizedData = {
       assignmentNumber: body.assignmentNumber || body.assignment,
       status: body.status,
+      marks: body.marks !== undefined ? Number(body.marks) : undefined,
+      maxMarks: body.maxMarks !== undefined ? Number(body.maxMarks) : undefined,
       date: body.date || body.completedDate || body.submittedDate,
     };
     const validatedData = UpdateStudentAssignmentSchema.parse(normalizedData);

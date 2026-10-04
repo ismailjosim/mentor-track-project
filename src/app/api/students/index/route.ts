@@ -27,17 +27,20 @@ export async function GET(request: NextRequest) {
       const cleanSearch = search.trim();
       const escaped = escapeRegex(cleanSearch);
       const digits = cleanSearch.replace(/\D/g, '');
+      const isEmailSearch = cleanSearch.includes('@');
 
       const searchConditions: Record<string, unknown>[] = [
         { name: { $regex: escaped, $options: 'i' } },
         { email: { $regex: escaped, $options: 'i' } },
       ];
 
-      if (digits.length >= 2) {
-        searchConditions.push({ phone: { $regex: digits, $options: 'i' } });
-        searchConditions.push({ whatsapp: { $regex: digits, $options: 'i' } });
-      } else {
-        searchConditions.push({ phone: { $regex: escaped, $options: 'i' } });
+      if (!isEmailSearch) {
+        if (digits.length >= 2) {
+          searchConditions.push({ phone: { $regex: digits, $options: 'i' } });
+          searchConditions.push({ whatsapp: { $regex: digits, $options: 'i' } });
+        } else {
+          searchConditions.push({ phone: { $regex: escaped, $options: 'i' } });
+        }
       }
 
       filter.$or = searchConditions;

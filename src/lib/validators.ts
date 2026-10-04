@@ -59,6 +59,8 @@ export const UpdateStudentAssignmentSchema = z.object({
   assignmentNumber: z.number().int().min(1).max(10),
   status: z.enum(['PENDING', 'SUBMITTED', 'COMPLETED']).optional(),
   marks: z.number().min(0).max(100).optional(),
+  /** Which deadline tier the student submitted under: 60 (1st), 50 (2nd), 30 (no deadline) */
+  maxMarks: z.union([z.literal(30), z.literal(50), z.literal(60)]).optional(),
   date: z.coerce.date().optional(),
 });
 

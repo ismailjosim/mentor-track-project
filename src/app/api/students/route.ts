@@ -48,19 +48,23 @@ export async function GET(request: NextRequest) {
       const cleanSearch = search.trim();
       const escaped = escapeRegex(cleanSearch);
       const digits = cleanSearch.replace(/\D/g, '');
+      // If the search term contains "@" treat it as an email search and skip phone matching
+      const isEmailSearch = cleanSearch.includes('@');
 
       const searchConditions: any[] = [
         { name: { $regex: escaped, $options: 'i' } },
         { email: { $regex: escaped, $options: 'i' } },
       ];
 
-      // If user typed digits (e.g. phone or partial phone number), match against phone & whatsapp
-      if (digits.length >= 2) {
-        searchConditions.push({ phone: { $regex: digits, $options: 'i' } });
-        searchConditions.push({ whatsapp: { $regex: digits, $options: 'i' } });
-      } else {
-        // Otherwise, allow matching exact escaped string against phone field
-        searchConditions.push({ phone: { $regex: escaped, $options: 'i' } });
+      if (!isEmailSearch) {
+        // If user typed digits (e.g. phone or partial phone number), match against phone & whatsapp
+        if (digits.length >= 2) {
+          searchConditions.push({ phone: { $regex: digits, $options: 'i' } });
+          searchConditions.push({ whatsapp: { $regex: digits, $options: 'i' } });
+        } else {
+          // Otherwise, allow matching exact escaped string against phone field
+          searchConditions.push({ phone: { $regex: escaped, $options: 'i' } });
+        }
       }
 
       andConditions.push({ $or: searchConditions });
