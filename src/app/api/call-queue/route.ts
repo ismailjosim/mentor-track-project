@@ -21,11 +21,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const page = parseInt(searchParams.get('page') || '1');
+    const rawCohort = searchParams.get('cohort');
+    const selectedCohort =
+      rawCohort && rawCohort !== 'all' ? rawCohort.trim().replace(/[^\d]/g, '') : undefined;
 
     const { skip } = getPaginationParams(page, limit);
 
-    // Get the full generated queue so pagination metadata stays accurate.
-    const queue = await getCallQueue(0, userId);
+    // Get the full generated queue for this cohort so pagination metadata stays accurate.
+    const queue = await getCallQueue(0, userId, selectedCohort);
 
     // Apply pagination
     const paginatedQueue = queue.slice(skip, skip + limit);

@@ -7,21 +7,14 @@ import {
   GROUP_OPTIONS,
   DEVICE_OPTIONS,
   PROGRAM_OPTIONS,
+  COHORT_OPTIONS,
+  type StudentTableFilters as IStudentTableFilters,
+  type StudentFilterKey,
 } from './types';
 
 interface StudentsTableFiltersProps {
-  search: string;
-  onSearchChange: (val: string) => void;
-  statusFilter: string;
-  onStatusFilterChange: (val: string) => void;
-  progressFilter: string;
-  onProgressFilterChange: (val: string) => void;
-  groupFilter: string;
-  onGroupFilterChange: (val: string) => void;
-  deviceFilter: string;
-  onDeviceFilterChange: (val: string) => void;
-  programFilter: string;
-  onProgramFilterChange: (val: string) => void;
+  filters: IStudentTableFilters;
+  onFilterChange: (key: StudentFilterKey, val: string) => void;
   onResetFilters: () => void;
   onExportFiltered?: () => void;
   isExporting?: boolean;
@@ -29,41 +22,46 @@ interface StudentsTableFiltersProps {
 }
 
 export function StudentsTableFilters({
-  search,
-  onSearchChange,
-  statusFilter,
-  onStatusFilterChange,
-  progressFilter,
-  onProgressFilterChange,
-  groupFilter,
-  onGroupFilterChange,
-  deviceFilter,
-  onDeviceFilterChange,
-  programFilter,
-  onProgramFilterChange,
+  filters,
+  onFilterChange,
   onResetFilters,
   onExportFiltered,
   isExporting = false,
   hasActiveFilters,
 }: StudentsTableFiltersProps) {
   return (
-    <div className="px-5 py-4 border-b bg-muted/20 flex flex-col md:flex-row gap-3 justify-between">
-      <div className="relative w-full md:max-w-sm">
+    <div className="px-4 py-3 sm:px-5 sm:py-4 border-b bg-muted/20 flex flex-col xl:flex-row gap-3 justify-between">
+      <div className="relative w-full xl:max-w-xs shrink-0">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <input
           type="text"
           placeholder="Search by name, email, or phone..."
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
+          value={filters.search}
+          onChange={(e) => onFilterChange('search', e.target.value)}
           className="w-full pl-10 pr-4 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:flex xl:flex-wrap items-center gap-2 w-full xl:w-auto">
+        <div className="flex items-center gap-1.5 border border-primary/30 bg-primary/5 rounded-md px-2.5 py-1 text-sm font-semibold w-full xl:w-auto">
+          <span className="text-xs text-primary font-bold">Batch:</span>
+          <select
+            value={filters.cohort}
+            onChange={(e) => onFilterChange('cohort', e.target.value)}
+            className="bg-transparent text-sm font-bold text-foreground focus:outline-none cursor-pointer py-1 w-full"
+          >
+            {COHORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <select
-          value={progressFilter}
-          onChange={(e) => onProgressFilterChange(e.target.value)}
-          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          value={filters.progress}
+          onChange={(e) => onFilterChange('progress', e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full xl:w-auto"
         >
           {PROGRESS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -73,9 +71,9 @@ export function StudentsTableFilters({
         </select>
 
         <select
-          value={statusFilter}
-          onChange={(e) => onStatusFilterChange(e.target.value)}
-          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          value={filters.status}
+          onChange={(e) => onFilterChange('status', e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full xl:w-auto"
         >
           {STATUS_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -85,9 +83,9 @@ export function StudentsTableFilters({
         </select>
 
         <select
-          value={groupFilter}
-          onChange={(e) => onGroupFilterChange(e.target.value)}
-          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          value={filters.group}
+          onChange={(e) => onFilterChange('group', e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full xl:w-auto"
         >
           {GROUP_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -97,9 +95,9 @@ export function StudentsTableFilters({
         </select>
 
         <select
-          value={deviceFilter}
-          onChange={(e) => onDeviceFilterChange(e.target.value)}
-          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          value={filters.device}
+          onChange={(e) => onFilterChange('device', e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full xl:w-auto"
         >
           {DEVICE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -109,9 +107,9 @@ export function StudentsTableFilters({
         </select>
 
         <select
-          value={programFilter}
-          onChange={(e) => onProgramFilterChange(e.target.value)}
-          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+          value={filters.programType}
+          onChange={(e) => onFilterChange('programType', e.target.value)}
+          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full xl:w-auto"
         >
           {PROGRAM_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -120,25 +118,27 @@ export function StudentsTableFilters({
           ))}
         </select>
 
-        <button
-          onClick={onResetFilters}
-          className="p-2 border rounded-md hover:bg-muted transition-colors"
-          title="Reset filters"
-        >
-          <RefreshCw className="w-4 h-4 text-muted-foreground" />
-        </button>
-
-        {onExportFiltered && hasActiveFilters && (
+        <div className="col-span-2 sm:col-span-1 xl:col-auto flex items-center gap-2">
           <button
-            onClick={onExportFiltered}
-            disabled={isExporting}
-            className="inline-flex items-center gap-2 px-3 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50"
-            title="Export filtered call sheet"
+            onClick={onResetFilters}
+            className="p-2 border rounded-md hover:bg-muted transition-colors flex-1 sm:flex-initial flex justify-center items-center"
+            title="Reset filters"
           >
-            <Download className="w-4 h-4" />
-            {isExporting ? 'Exporting...' : 'Export'}
+            <RefreshCw className="w-4 h-4 text-muted-foreground" />
           </button>
-        )}
+
+          {onExportFiltered && hasActiveFilters && (
+            <button
+              onClick={onExportFiltered}
+              disabled={isExporting}
+              className="inline-flex items-center justify-center gap-2 px-3 py-2 border rounded-md text-sm font-medium hover:bg-muted transition-colors disabled:opacity-50 flex-1 sm:flex-initial"
+              title="Export filtered call sheet"
+            >
+              <Download className="w-4 h-4" />
+              <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

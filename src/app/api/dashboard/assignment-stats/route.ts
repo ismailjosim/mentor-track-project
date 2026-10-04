@@ -2,42 +2,62 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import Student from '@/models/Student';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await connectDB();
     const authResult = await requireCurrentUserId();
     if (authResult.response) return authResult.response;
     const userId = authResult.userId;
 
-    // Get total students
-    const totalStudents = await Student.countDocuments({ ownerId: userId });
+    const { searchParams } = new URL(request.url);
+    const rawCohort = searchParams.get('cohort');
+    const selectedCohort =
+      rawCohort && rawCohort !== 'all' ? rawCohort.trim().replace(/[^\d]/g, '') : null;
 
-    // For each assignment 1-10, count how many students have completed it
-    const stats = [];
+    const baseFilter: Record<string, unknown> = { ownerId: userId };
+    if (selectedCohort) {
+      baseFilter.cohort = selectedCohort;
+    }
 
-    for (let i = 1; i <= 10; i++) {
-      const submittedCount = await Student.countDocuments({
-        ownerId: userId,
-        assignments: {
-          $elemMatch: {
-            assignmentNumber: i,
-            status: { $in: ['SUBMITTED', 'COMPLETED'] },
+    // Query total students and submitted assignment counts in a single aggregation pipeline concurrently
+    const [totalStudents, assignmentAggResult] = await Promise.all([
+      Student.countDocuments(baseFilter),
+      Student.aggregate<{ _id: number; submittedCount: number }>([
+        { $match: baseFilter },
+        { $unwind: '$assignments' },
+        {
+          $match: {
+            'assignments.status': { $in: ['SUBMITTED', 'COMPLETED'] },
+            'assignments.assignmentNumber': { $gte: 1, $lte: 10 },
           },
         },
-      });
+        {
+          $group: {
+            _id: '$assignments.assignmentNumber',
+            submittedCount: { $sum: 1 },
+          },
+        },
+      ]),
+    ]);
 
-      const submissionRate =
-        totalStudents > 0 ? Math.round((submittedCount / totalStudents) * 100) : 0;
+    const countMap = new Map<number, number>(
+      assignmentAggResult.map((item) => [item._id, item.submittedCount])
+    );
 
-      stats.push({
-        assignmentNumber: i,
-        submitted: submittedCount,
+    const stats = Array.from({ length: 10 }, (_, index) => {
+      const assignmentNumber = index + 1;
+      const submitted = countMap.get(assignmentNumber) || 0;
+      const submissionRate = totalStudents > 0 ? Math.round((submitted / totalStudents) * 100) : 0;
+
+      return {
+        assignmentNumber,
+        submitted,
         total: totalStudents,
         rate: submissionRate,
-      });
-    }
+      };
+    });
 
     return NextResponse.json(
       createResponse(200, 'Assignment stats fetched successfully', {

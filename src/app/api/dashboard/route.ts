@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
@@ -16,21 +16,36 @@ const parseAssignmentNumber = (assignment?: string | null) => {
 
 const isSubmitted = (status?: string) => status === 'SUBMITTED' || status === 'COMPLETED';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await connectDB();
     const authResult = await requireCurrentUserId();
     if (authResult.response) return authResult.response;
     const userId = authResult.userId;
 
-    const [students, settings] = await Promise.all([
-      Student.find({ ownerId: userId })
+    const { searchParams } = new URL(request.url);
+    const rawCohort = searchParams.get('cohort');
+    const selectedCohort =
+      rawCohort && rawCohort !== 'all' ? rawCohort.trim().replace(/[^\d]/g, '') : null;
+
+    const studentFilter: any = { ownerId: userId };
+    if (selectedCohort) {
+      studentFilter.cohort = selectedCohort;
+    }
+
+    const [students, settings, distinctCohorts] = await Promise.all([
+      Student.find(studentFilter)
         .select(
-          '_id name email phone currentStatus lastCompletedAssignment assignments lastContactedAt'
+          '_id name email phone cohort currentStatus lastCompletedAssignment assignments lastContactedAt'
         )
         .lean(),
       Settings.findOne({ ownerId: userId }).select('currentAssignment').lean(),
+      Student.distinct('cohort', { ownerId: userId }),
     ]);
+
+    const availableCohorts = Array.from(
+      new Set([...distinctCohorts.filter(Boolean).map(String), '13', '14'])
+    ).sort((a, b) => Number(a) - Number(b));
 
     const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
     let totalAssignments = 0;
@@ -121,6 +136,8 @@ export async function GET() {
     return NextResponse.json(
       createResponse(200, 'Dashboard overview fetched successfully', {
         stats,
+        cohort: selectedCohort || 'all',
+        availableCohorts,
         students: lightweightStudents,
         failingStudents: failingStudents.slice(0, PAGE_SIZE),
         failingPagination: {

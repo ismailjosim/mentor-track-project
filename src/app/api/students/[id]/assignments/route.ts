@@ -164,6 +164,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const newAssignment: StudentAssignment = {
       assignmentNumber: validatedData.assignmentNumber,
       status: validatedData.status || 'PENDING',
+      marks: validatedData.marks,
       date: validatedData.date,
     };
 

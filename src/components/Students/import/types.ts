@@ -5,6 +5,7 @@ export type ImportStep = 'upload' | 'preview' | 'importing' | 'success';
 
 export interface ImportPreview {
   preview: boolean;
+  cohort?: string;
   headers: string[];
   totalRows: number;
   validCount: number;

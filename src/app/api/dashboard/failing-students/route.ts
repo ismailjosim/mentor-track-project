@@ -11,27 +11,32 @@ export async function GET(request: NextRequest) {
     if (authResult.response) return authResult.response;
     const userId = authResult.userId;
 
-    // Get query params for pagination
+    // Get query params for pagination and cohort
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
+    const rawCohort = searchParams.get('cohort');
+    const selectedCohort =
+      rawCohort && rawCohort !== 'all' ? rawCohort.trim().replace(/[^\d]/g, '') : null;
     const skip = (page - 1) * limit;
+
+    const filter: Record<string, unknown> = {
+      ownerId: userId,
+      currentStatus: { $in: ['Behind', 'At Risk'] },
+    };
+    if (selectedCohort) {
+      filter.cohort = selectedCohort;
+    }
 
     // Get failing students (At Risk or Behind) and total count in parallel
     const [students, totalCount] = await Promise.all([
-      Student.find({
-        ownerId: userId,
-        currentStatus: { $in: ['Behind', 'At Risk'] },
-      })
-        .select('_id name email phone currentStatus lastCompletedAssignment')
+      Student.find(filter)
+        .select('_id name email phone cohort currentStatus lastCompletedAssignment')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Student.countDocuments({
-        ownerId: userId,
-        currentStatus: { $in: ['Behind', 'At Risk'] },
-      }),
+      Student.countDocuments(filter),
     ]);
 
     const totalPages = Math.ceil(totalCount / limit);

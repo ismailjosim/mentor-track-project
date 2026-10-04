@@ -23,7 +23,14 @@ export function StudentsTableRow({ student: s, onDeleteClick, isDeleting }: Stud
         <div className="flex items-center gap-3">
           <StudentAvatar name={s.name} size="sm" />
           <div>
-            <p className="font-semibold">{s.name}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="font-semibold">{s.name}</p>
+              {s.cohort && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                  B-{s.cohort}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">{s.email}</p>
           </div>
         </div>

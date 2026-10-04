@@ -1,5 +1,7 @@
 @import 'tailwindcss';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
   color-scheme: light;
   --background: oklch(0.975 0.008 255);
@@ -92,61 +94,142 @@
 }
 
 @theme inline {
-  --color-background: var(--background); --color-foreground: var(--foreground);
-  --color-card: var(--card); --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
-  --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring);
-  --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground);
-  --color-hover: var(--hover); --color-destructive: var(--destructive);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-hover: var(--hover);
+  --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
-  --color-success: var(--success); --color-success-soft: var(--success-soft);
-  --color-success-foreground: var(--success-foreground); --color-success-border: var(--success-border);
-  --color-warning: var(--warning); --color-warning-soft: var(--warning-soft);
-  --color-warning-foreground: var(--warning-foreground); --color-warning-border: var(--warning-border);
-  --color-info: var(--info); --color-info-soft: var(--info-soft);
-  --color-info-foreground: var(--info-foreground); --color-info-border: var(--info-border);
-  --color-danger-soft: var(--danger-soft); --color-danger-foreground: var(--danger-foreground);
-  --color-danger-border: var(--danger-border); --color-neutral-soft: var(--neutral-soft);
-  --color-neutral-foreground: var(--neutral-foreground); --color-neutral-border: var(--neutral-border);
-  --radius-sm: 0.5rem; --radius-md: 0.75rem; --radius-lg: 1rem; --radius-xl: 1.25rem;
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-border: var(--success-border);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-border: var(--warning-border);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-border: var(--info-border);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-foreground: var(--danger-foreground);
+  --color-danger-border: var(--danger-border);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-foreground: var(--neutral-foreground);
+  --color-neutral-border: var(--neutral-border);
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
 }
 
 @layer base {
-  * { @apply border-border; }
-  html { scroll-behavior: smooth; }
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground antialiased;
     min-width: 320px;
-    background-image: radial-gradient(circle at 8% 0%, color-mix(in oklch, var(--primary) 8%, transparent) 0, transparent 28rem);
+    background-image: radial-gradient(
+      circle at 8% 0%,
+      color-mix(in oklch, var(--primary) 8%, transparent) 0,
+      transparent 28rem
+    );
   }
-  ::selection { background: color-mix(in oklch, var(--primary) 25%, transparent); }
-  :focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
-  h1, h2, h3 { text-wrap: balance; letter-spacing: -0.025em; }
-  button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 25%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+    letter-spacing: -0.025em;
+  }
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 @layer components {
-  .container { @apply mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8; }
-  .app-main { @apply mx-auto w-full max-w-[1440px] flex-1 px-4 py-7 sm:px-6 sm:py-9 lg:px-8; }
-  .page-header { @apply flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between; }
-  .page-title { @apply text-3xl font-bold tracking-[-0.04em] sm:text-4xl; }
-  .page-description { @apply mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base; }
-  .surface { @apply rounded-2xl border border-border/80 bg-card text-card-foreground; box-shadow: 0 1px 2px hsl(var(--shadow-color) / .04), 0 12px 32px hsl(var(--shadow-color) / .06); }
+  .container {
+    @apply mx-auto w-full max-w-360 px-4 sm:px-6 lg:px-8;
+  }
+  .app-main {
+    @apply mx-auto w-full max-w-360 flex-1 px-4 py-7 sm:px-6 sm:py-9 lg:px-8;
+  }
+  .page-header {
+    @apply flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between;
+  }
+  .page-title {
+    @apply text-3xl font-bold tracking-[-0.04em] sm:text-4xl;
+  }
+  .page-description {
+    @apply mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base;
+  }
+  .surface {
+    @apply rounded-2xl border border-border/80 bg-card text-card-foreground;
+    box-shadow:
+      0 1px 2px hsl(var(--shadow-color) / 0.04),
+      0 12px 32px hsl(var(--shadow-color) / 0.06);
+  }
   .card {
     @apply rounded-2xl border border-border/80 bg-card text-card-foreground transition duration-200 hover:-translate-y-0.5;
-    box-shadow: 0 1px 2px hsl(var(--shadow-color) / .04), 0 12px 32px hsl(var(--shadow-color) / .06);
+    box-shadow:
+      0 1px 2px hsl(var(--shadow-color) / 0.04),
+      0 12px 32px hsl(var(--shadow-color) / 0.06);
   }
-  .input-focus { @apply focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/15; }
-  .status-success { @apply border-success-border bg-success-soft text-success-foreground; }
-  .status-warning { @apply border-warning-border bg-warning-soft text-warning-foreground; }
-  .status-info { @apply border-info-border bg-info-soft text-info-foreground; }
-  .status-danger { @apply border-danger-border bg-danger-soft text-danger-foreground; }
-  .status-neutral { @apply border-neutral-border bg-neutral-soft text-neutral-foreground; }
+  .input-focus {
+    @apply focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/15;
+  }
+  .status-success {
+    @apply border-success-border bg-success-soft text-success-foreground;
+  }
+  .status-warning {
+    @apply border-warning-border bg-warning-soft text-warning-foreground;
+  }
+  .status-info {
+    @apply border-info-border bg-info-soft text-info-foreground;
+  }
+  .status-danger {
+    @apply border-danger-border bg-danger-soft text-danger-foreground;
+  }
+  .status-neutral {
+    @apply border-neutral-border bg-neutral-soft text-neutral-foreground;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -21,14 +21,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Process and validate import file
-    const fileData = await processStudentImportFile(file);
+    const rawCohort = formData.get('cohort');
+    const selectedCohort =
+      (rawCohort ? String(rawCohort).trim().replace(/[^\d]/g, '') : '') || '14';
+
+    // Process and validate import file with target cohort
+    const fileData = await processStudentImportFile(file, selectedCohort);
 
     // For preview mode - just return validation results
     const previewOnly = formData.get('previewOnly') === 'true';
     if (previewOnly) {
       return NextResponse.json({
         preview: true,
+        cohort: selectedCohort,
         headers: fileData.headers,
         totalRows: fileData.rows,
         validCount: fileData.validRows.length,
@@ -41,32 +46,49 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Actual import - check for existing emails
+    // Actual import - check for existing emails within selected cohort
     const importConfirmed = formData.get('confirmed') === 'true';
     if (!importConfirmed) {
       return NextResponse.json({ error: 'Import not confirmed' }, { status: 400 });
     }
 
-    // Check for duplicate emails in database
+    // Check for duplicate emails in database for this specific cohort
     const emails = fileData.validRows.map((r) => r.email);
-    const existingStudents = await Student.find({ ownerId: userId, email: { $in: emails } });
+    const existingStudents = await Student.find({
+      ownerId: userId,
+      cohort: selectedCohort,
+      email: { $in: emails },
+    });
     const existingEmails = existingStudents.map((s: any) => s.email);
 
     const toCreate = fileData.validRows.filter((row) => !existingEmails.includes(row.email));
     const toUpdate = fileData.validRows.filter((row) => existingEmails.includes(row.email));
 
-    // Create new students
+    // Create new students tagged with ownerId and cohort
     const created = await Student.insertMany(
-      toCreate.map((student) => ({ ...student, ownerId: userId }))
+      toCreate.map((student) => ({
+        ...student,
+        cohort: student.cohort || selectedCohort,
+        ownerId: userId,
+      }))
     );
 
-    // Update existing students
+    // Update existing students in this cohort using bulkWrite in a single database round-trip
     let updated = 0;
-    for (const student of toUpdate) {
-      await Student.updateOne({ ownerId: userId, email: student.email }, student, {
-        runValidators: true,
-      });
-      updated++;
+    if (toUpdate.length > 0) {
+      const bulkOps = toUpdate.map((student) => ({
+        updateOne: {
+          filter: { ownerId: userId, cohort: selectedCohort, email: student.email },
+          update: {
+            $set: {
+              ...student,
+              cohort: student.cohort || selectedCohort,
+            },
+          },
+        },
+      }));
+      const bulkResult = await Student.bulkWrite(bulkOps);
+      updated = bulkResult.modifiedCount || bulkResult.matchedCount || toUpdate.length;
     }
 
     // Invalidate student-related caches after bulk import/update
@@ -76,6 +98,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      cohort: selectedCohort,
       summary: {
         totalProcessed: fileData.validRows.length,
         created: created.length,
@@ -83,7 +106,7 @@ export async function POST(request: NextRequest) {
         skipped: fileData.invalidRows.length + fileData.duplicateEmails.length,
         createdIds: created.map((s: any) => s._id),
       },
-      message: `Imported ${created.length} new students, updated ${updated} existing students`,
+      message: `Imported ${created.length} new students and updated ${updated} existing students in Batch ${selectedCohort}`,
     });
   } catch (error) {
     console.error('Import error:', error);

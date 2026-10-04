@@ -1,6 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { connectDB } from '@/lib/mongodb';
-import { createResponse, handleDbError, getPaginationParams, logger } from '@/lib/utils';
+import {
+  createResponse,
+  handleDbError,
+  getPaginationParams,
+  logger,
+  escapeRegex,
+} from '@/lib/utils';
 import Student from '@/models/Student';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
@@ -33,17 +39,21 @@ export async function GET(request: NextRequest) {
     // Build dynamic filter
     const filter: any = { ownerId: userId };
 
-    if (name) {
-      filter.name = { $regex: name, $options: 'i' };
+    if (name && name.trim()) {
+      filter.name = { $regex: escapeRegex(name.trim()), $options: 'i' };
     }
 
-    if (email) {
-      filter.email = email.toLowerCase();
+    if (email && email.trim()) {
+      filter.email = { $regex: escapeRegex(email.trim()), $options: 'i' };
     }
 
-    if (phone) {
+    if (phone && phone.trim()) {
       const phoneDigits = phone.replace(/\D/g, '');
-      filter.phone = { $regex: phoneDigits, $options: 'i' };
+      if (phoneDigits) {
+        filter.phone = { $regex: phoneDigits, $options: 'i' };
+      } else {
+        filter.phone = { $regex: escapeRegex(phone.trim()), $options: 'i' };
+      }
     }
 
     if (status) {

@@ -65,6 +65,7 @@ export interface StudentWithRelations {
   email: string;
   phone: string;
   whatsapp?: string;
+  cohort?: string;
   division?: string;
   district?: string;
   town?: string;
@@ -101,6 +102,7 @@ export interface StudentSummary {
 
 export interface StudentFilterOptions {
   status?: StudentStatus;
+  cohort?: string;
   ageRange?: AgeRange;
   workingDevice?: WorkingDevice;
   division?: string;

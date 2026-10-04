@@ -1,11 +1,8 @@
 import mongoose, { Mongoose } from 'mongoose';
+import { env } from '@/lib/env';
 
-const MONGODB_URI = process.env.MONGODB_URI!;
-const MONGODB_DB_NAME = process.env.MONGODB_DB_NAME || 'student-management';
-
-if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
-}
+const MONGODB_URI = env.MONGODB_URI;
+const MONGODB_DB_NAME = env.MONGODB_DB_NAME;
 
 interface MongooseCache {
   conn: Mongoose | null;
@@ -50,7 +47,7 @@ export async function connectDB(): Promise<Mongoose> {
   return cached!.conn;
 }
 
-// Event handlers should be outside the main connect logic to avoid duplication
+// Event handlers
 mongoose.connection.on('error', (err) => console.error('MongoDB Error:', err));
 mongoose.connection.on('disconnected', () => console.warn('MongoDB Disconnected'));
 

@@ -91,6 +91,9 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
+import { BatchProvider } from '@/components/providers/BatchProvider';
+import { QueryProvider } from '@/components/providers/QueryProvider';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -98,11 +101,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="h-full antialiased">
-      <body className="min-h-full bg-background">
+      <body className="min-h-full bg-background" suppressHydrationWarning>
         <NextThemeProvider>
           <AuthProvider>
-            <Toaster position="top-center" />
-            <AppShell>{children}</AppShell>
+            <QueryProvider>
+              <BatchProvider>
+                <Toaster position="top-center" />
+                <AppShell>{children}</AppShell>
+              </BatchProvider>
+            </QueryProvider>
           </AuthProvider>
         </NextThemeProvider>
       </body>

@@ -1,5 +1,17 @@
 import type { StudentWithRelations } from '@/types';
 
+export interface StudentTableFilters {
+  search: string;
+  cohort: string;
+  status: string;
+  progress: string;
+  group: string;
+  device: string;
+  programType: string;
+}
+
+export type StudentFilterKey = keyof StudentTableFilters;
+
 export interface StudentsTableProps {
   students: StudentWithRelations[];
   currentPage?: number;
@@ -7,6 +19,15 @@ export interface StudentsTableProps {
   totalStudents?: number;
   onPageChange?: (page: number) => void;
   isLoading?: boolean;
+
+  // Unified Filter State
+  filters?: Partial<StudentTableFilters>;
+  onFilterChange?: (key: StudentFilterKey, val: string) => void;
+  onResetFilters?: () => void;
+  onExportFiltered?: () => void;
+  isExporting?: boolean;
+
+  // Optional legacy props
   search?: string;
   onSearchChange?: (search: string) => void;
   statusFilter?: string;
@@ -17,12 +38,17 @@ export interface StudentsTableProps {
   onGroupFilterChange?: (group: string) => void;
   deviceFilter?: string;
   onDeviceFilterChange?: (device: string) => void;
+  cohortFilter?: string;
+  onCohortFilterChange?: (cohort: string) => void;
   programFilter?: string;
   onProgramFilterChange?: (programType: string) => void;
-  onResetFilters?: () => void;
-  onExportFiltered?: () => void;
-  isExporting?: boolean;
 }
+
+export const COHORT_OPTIONS: { label: string; value: string }[] = [
+  { label: 'All Batches', value: 'all' },
+  { label: 'Batch 13', value: '13' },
+  { label: 'Batch 14', value: '14' },
+];
 
 export const STATUS_OPTIONS: { label: string; value: string }[] = [
   { label: 'All Statuses', value: 'all' },

@@ -1,5 +1,5 @@
 import { connectDB } from '@/lib/mongodb';
-import { createResponse, handleDbError } from '@/lib/utils';
+import { createResponse, handleDbError, escapeRegex } from '@/lib/utils';
 import Student from '@/models/Student';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
@@ -23,17 +23,24 @@ export async function GET(request: NextRequest) {
 
     // Build filter
     const filter: Record<string, unknown> = { ownerId: userId };
-    if (search) {
-      // If search contains @, treat as exact email match; otherwise, fuzzy search
-      if (search.includes('@')) {
-        filter.email = search.toLowerCase();
+    if (search && search.trim()) {
+      const cleanSearch = search.trim();
+      const escaped = escapeRegex(cleanSearch);
+      const digits = cleanSearch.replace(/\D/g, '');
+
+      const searchConditions: Record<string, unknown>[] = [
+        { name: { $regex: escaped, $options: 'i' } },
+        { email: { $regex: escaped, $options: 'i' } },
+      ];
+
+      if (digits.length >= 2) {
+        searchConditions.push({ phone: { $regex: digits, $options: 'i' } });
+        searchConditions.push({ whatsapp: { $regex: digits, $options: 'i' } });
       } else {
-        filter.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { phone: { $regex: search, $options: 'i' } },
-        ];
+        searchConditions.push({ phone: { $regex: escaped, $options: 'i' } });
       }
+
+      filter.$or = searchConditions;
     }
     if (status) {
       filter.currentStatus = status;
@@ -46,7 +53,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Get students
-    const students = await Student.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const students = await Student.find(filter)
+      .sort({ name: 1 })
+      .collation({ locale: 'en', strength: 2 })
+      .skip(skip)
+      .limit(limit);
 
     // Get total count
     const totalCount = await Student.countDocuments(filter);

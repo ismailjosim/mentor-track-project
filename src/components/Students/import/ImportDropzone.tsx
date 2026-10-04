@@ -1,14 +1,16 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Upload } from 'lucide-react';
+import { Upload, Layers, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface ImportDropzoneProps {
+  cohort: string;
+  onCohortChange: (cohort: string) => void;
   onFileSelect: (file: File) => void;
 }
 
-export function ImportDropzone({ onFileSelect }: ImportDropzoneProps) {
+export function ImportDropzone({ cohort, onCohortChange, onFileSelect }: ImportDropzoneProps) {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -49,6 +51,29 @@ export function ImportDropzone({ onFileSelect }: ImportDropzoneProps) {
 
   return (
     <div className="space-y-6">
+      {/* Batch / Cohort selector */}
+      <div className="surface p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <label className="text-sm font-semibold flex items-center gap-2">
+            <Layers className="w-4 h-4 text-primary" />
+            Target Batch / Cohort
+          </label>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Select the cohort where the students from this sheet will be imported.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={cohort}
+            onChange={(e) => onCohortChange(e.target.value)}
+            className="px-3.5 py-2 text-sm font-semibold rounded-xl border bg-background text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-37.5"
+          >
+            <option value="14">Batch 14 (Current)</option>
+            <option value="13">Batch 13</option>
+          </select>
+        </div>
+      </div>
+
       {/* File upload zone */}
       <div
         onDragEnter={handleDrag}
@@ -91,13 +116,31 @@ export function ImportDropzone({ onFileSelect }: ImportDropzoneProps) {
         />
       </div>
 
-      {/* Format guide */}
-      <div className="bg-muted/50 rounded-lg p-4 border">
-        <h4 className="font-semibold text-sm mb-2">Expected file format:</h4>
-        <div className="text-xs space-y-1 text-muted-foreground font-mono">
-          <div>name, email, phone, whatsapp, division, institute, ...</div>
-          <div>John Doe, john@example.com, 01700000000, 01700000000, ...</div>
-          <div>Jane Smith, jane@example.com, 01800000000, 01800000000, ...</div>
+      {/* Format guide & requirements */}
+      <div className="surface rounded-2xl p-5 border space-y-3">
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          <h4 className="font-semibold text-sm">Flexible Import Requirements</h4>
+        </div>
+        <div className="text-xs space-y-2 text-muted-foreground leading-relaxed">
+          <p>
+            <strong className="text-foreground">Required fields:</strong> Only{' '}
+            <code className="bg-muted px-1.5 py-0.5 rounded text-primary font-semibold">name</code>,{' '}
+            <code className="bg-muted px-1.5 py-0.5 rounded text-primary font-semibold">email</code>
+            , and{' '}
+            <code className="bg-muted px-1.5 py-0.5 rounded text-primary font-semibold">phone</code>{' '}
+            are mandatory.
+          </p>
+          <p>
+            <strong className="text-foreground">Optional fields:</strong> If the sheet contains
+            extra columns matching database fields (e.g.{' '}
+            <code className="bg-muted px-1 py-0.5 rounded">district</code>,{' '}
+            <code className="bg-muted px-1 py-0.5 rounded">institute</code>,{' '}
+            <code className="bg-muted px-1 py-0.5 rounded">device</code>,{' '}
+            <code className="bg-muted px-1 py-0.5 rounded">whatsapp</code>,{' '}
+            <code className="bg-muted px-1 py-0.5 rounded">status</code>), they will be
+            automatically imported. Any non-matching columns will be safely ignored.
+          </p>
         </div>
       </div>
     </div>

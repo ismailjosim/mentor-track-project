@@ -111,9 +111,12 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
   const handleCommitAssignment = async () => {
     try {
       setProcessing(true);
-      const emails = file
-        ? await processAssignmentImportFile(file).then((f) => f.validEmails)
-        : parseEmails(emailsText);
+      const emails =
+        result?.matchedStudents && result.matchedStudents.length > 0
+          ? result.matchedStudents.map((s) => s.email)
+          : file
+            ? await processAssignmentImportFile(file).then((f) => f.validEmails)
+            : parseEmails(emailsText);
 
       const response = await fetch('/api/assignments/bulk-submit', {
         method: 'POST',

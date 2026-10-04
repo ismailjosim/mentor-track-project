@@ -157,7 +157,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
             Current Status
           </h3>
           <div
-            className={`flex items-center gap-3 p-4 rounded-lg border ${statusOption?.color || 'bg-gray-100 text-gray-700 border-gray-300'}`}
+            className={`flex items-center gap-3 p-4 rounded-lg border ${statusOption?.color || 'status-neutral'}`}
           >
             <StatusIcon className="w-5 h-5" />
             <span className="font-semibold">{currentStatus}</span>
@@ -172,7 +172,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Progress Overview
           </h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div className="p-4 bg-muted/30 rounded-lg border">
               <p className="text-xs text-muted-foreground mb-1">Assignments Submitted</p>
               <p className="text-2xl font-bold">
@@ -239,7 +239,7 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
               </button>
             )}
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
             {STATUS_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
@@ -268,29 +268,41 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             Assignment Status
           </h3>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
             {Array.from({ length: 10 }, (_, i) => {
               const assignmentNum = i + 1;
               const assignment = assignments.find((a) => a.assignmentNumber === assignmentNum);
-              const isCompleted =
-                assignment?.status === 'COMPLETED' || assignment?.status === 'SUBMITTED';
+              const isCompleted = assignment?.status === 'COMPLETED';
+              const isSubmitted = assignment?.status === 'SUBMITTED';
               const isCurrent = assignmentNum === currentAssignmentNumber;
+
+              const statusClass = isCompleted
+                ? 'status-success font-semibold shadow-xs'
+                : isSubmitted
+                  ? 'status-info font-semibold shadow-xs'
+                  : isCurrent
+                    ? 'status-warning font-semibold'
+                    : 'status-neutral';
+
+              const statusTitle = isCompleted
+                ? 'Completed (Graded / Has Marks)'
+                : isSubmitted
+                  ? 'Submitted (No Marks Yet)'
+                  : isCurrent
+                    ? 'Current Assignment'
+                    : 'Not Started';
 
               return (
                 <div
                   key={assignmentNum}
-                  className={`flex flex-col items-center justify-center min-h-14 rounded border px-2 py-2 font-semibold text-xs transition-colors ${
-                    isCompleted ? 'status-success' : isCurrent ? 'status-warning' : 'status-neutral'
-                  }`}
-                  title={
-                    isCompleted ? 'Completed' : isCurrent ? 'Current Assignment' : 'Not Started'
-                  }
+                  className={`flex flex-col items-center justify-center min-h-14 rounded-lg border px-2 py-2 text-xs transition-all ${statusClass}`}
+                  title={statusTitle}
                 >
-                  <span>A-{String(assignmentNum).padStart(2, '0')}</span>
-                  <span className="text-[10px] font-medium opacity-80">
-                    {assignment?.status === 'COMPLETED'
+                  <span className="font-bold">A-{String(assignmentNum).padStart(2, '0')}</span>
+                  <span className="text-[10px] font-medium opacity-90 mt-0.5">
+                    {isCompleted
                       ? 'Completed'
-                      : assignment?.status === 'SUBMITTED'
+                      : isSubmitted
                         ? 'Submitted'
                         : isCurrent
                           ? 'Current'
@@ -300,14 +312,24 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
               );
             })}
           </div>
-          <p className="text-xs text-muted-foreground">
-            <span className="inline-block w-3 h-3 bg-success-soft border border-success-border rounded mr-2" />
-            Completed &nbsp;
-            <span className="inline-block w-3 h-3 bg-warning-soft border border-warning-border rounded mr-2" />
-            Current &nbsp;
-            <span className="inline-block w-3 h-3 bg-neutral-soft border border-neutral-border rounded mr-2" />
-            Not Started
-          </p>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground pt-1">
+            <span className="inline-flex items-center">
+              <span className="inline-block w-3.5 h-3.5 bg-success-soft border border-success-border rounded mr-2" />
+              Completed
+            </span>
+            <span className="inline-flex items-center">
+              <span className="inline-block w-3.5 h-3.5 bg-info-soft border border-info-border rounded mr-2" />
+              Submitted (No Marks)
+            </span>
+            <span className="inline-flex items-center">
+              <span className="inline-block w-3.5 h-3.5 bg-warning-soft border border-warning-border rounded mr-2" />
+              Current
+            </span>
+            <span className="inline-flex items-center">
+              <span className="inline-block w-3.5 h-3.5 bg-neutral-soft border border-neutral-border rounded mr-2" />
+              Not Started
+            </span>
+          </div>
         </div>
       </div>
     </div>

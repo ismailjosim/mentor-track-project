@@ -5,17 +5,33 @@ import { z } from 'zod';
 /**
  * Student import validation schema
  */
+/**
+ * Student import validation schema - ONLY name, email, and phone are required
+ */
 const StudentDataSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
+  name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email format'),
   phone: z.string().min(10, 'Phone must be at least 10 digits'),
   whatsapp: z.string().optional(),
+  cohort: z.string().optional(),
   division: z.string().optional(),
+  district: z.string().optional(),
+  town: z.string().optional(),
+  livingArea: z.string().optional(),
+  occupation: z.string().optional(),
   institute: z.string().optional(),
   educationalBackground: z.string().optional(),
   currentYear: z.string().optional(),
-  group: z.string().optional(),
-  device: z.string().optional(),
+  workingDevice: z.enum(['Laptop', 'Desktop', 'Mobile']).optional(),
+  currentStatus: z.enum(['On Track', 'Behind', 'At Risk', 'Dropped', 'Completed']).optional(),
+  lastCompletedAssignment: z
+    .enum(['A-01', 'A-02', 'A-03', 'A-04', 'A-05', 'A-06', 'A-07', 'A-08', 'A-09', 'A-10', 'None'])
+    .optional(),
+  mentorshipJoiningStatus: z.boolean().optional(),
+  programType: z.enum(['EJP', 'SCIC', 'Both', 'Other']).optional(),
+  scicMarks: z.number().min(0).max(100).optional(),
+  scicConfirmed: z.boolean().optional(),
+  comments: z.array(z.string()).optional(),
 });
 
 export type StudentImportData = z.infer<typeof StudentDataSchema>;
@@ -64,31 +80,97 @@ export async function parseXLSX(file: File): Promise<Record<string, any>[]> {
 /**
  * Normalize phone number - remove non-digits and ensure 10+ digits
  */
-export function formatPhoneNumber(phone: string | undefined): string {
-  if (!phone) return '';
+export function formatPhoneNumber(phone: string | number | undefined | null): string {
+  if (phone === undefined || phone === null) return '';
   const cleaned = phone.toString().replace(/\D/g, '');
   if (cleaned.length < 10) return '';
-  // Keep only last 11 digits (for BD: 01xxx format)
-  return cleaned.slice(-11) || cleaned;
+  // BD numbers often have 11 digits (e.g. 017xxxxxxxx)
+  return cleaned.length > 11 && cleaned.startsWith('880') ? cleaned.slice(2) : cleaned;
 }
 
 /**
  * Normalize email - lowercase and trim
  */
-export function normalizeEmail(email: string | undefined): string {
+export function normalizeEmail(email: string | undefined | null): string {
   if (!email) return '';
   return email.toString().toLowerCase().trim();
 }
 
 /**
- * Normalize field names by converting to lowercase and removing spaces
+ * Clean cohort string - extracts numbers if present, e.g. "batch-14" -> "14"
  */
-function normalizeFieldName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, '');
+export function cleanCohort(cohort: string | number | undefined | null): string | undefined {
+  if (cohort === undefined || cohort === null || cohort === '') return undefined;
+  const str = cohort.toString().trim();
+  const match = str.match(/\d+/);
+  return match ? match[0] : str;
 }
 
 /**
- * Try to detect and map columns from headers
+ * Normalize field names by converting to lowercase and removing non-alphanumeric characters
+ */
+function normalizeFieldName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Aliases for existing database fields
+ */
+const FIELD_ALIASES: Record<string, string[]> = {
+  name: ['name', 'studentname', 'fullname', 'student', 'nam'],
+  email: ['email', 'emailaddress', 'mail', 'emailid'],
+  phone: ['phone', 'phonenumber', 'phoneno', 'mobile', 'mobileno', 'contact', 'cell', 'cellphone'],
+  whatsapp: ['whatsapp', 'wa', 'wanumber', 'whatsappnumber', 'whatsappno'],
+  cohort: ['cohort', 'batch', 'batchno', 'cohortbatch', 'batchnumber', 'batchname'],
+  division: ['division', 'bibhag'],
+  district: ['district', 'zila'],
+  town: ['town', 'city', 'upazila', 'thana'],
+  livingArea: ['livingarea', 'area', 'presentaddress', 'address', 'location'],
+  occupation: ['occupation', 'profession', 'job'],
+  institute: [
+    'institute',
+    'institution',
+    'university',
+    'college',
+    'school',
+    'varsity',
+    'academicinstitute',
+  ],
+  educationalBackground: [
+    'educationalbackground',
+    'education',
+    'background',
+    'dept',
+    'department',
+    'subject',
+    'degree',
+  ],
+  currentYear: ['currentyear', 'year', 'academicyear', 'session', 'semester'],
+  workingDevice: ['workingdevice', 'device', 'laptopdesktop', 'devicetype'],
+  currentStatus: ['currentstatus', 'status', 'studentstatus'],
+  lastCompletedAssignment: [
+    'lastcompletedassignment',
+    'lastassignment',
+    'assignment',
+    'completedassignment',
+  ],
+  mentorshipJoiningStatus: [
+    'mentorshipjoiningstatus',
+    'mentorshipstatus',
+    'mentorshipgroup',
+    'groupstatus',
+    'ingroup',
+    'mentorship',
+    'group',
+  ],
+  programType: ['programtype', 'program', 'track'],
+  scicMarks: ['scicmarks', 'scicmark', 'marks'],
+  scicConfirmed: ['scicconfirmed', 'scic'],
+  comments: ['comments', 'comment', 'note', 'notes', 'remarks'],
+};
+
+/**
+ * Detect column mapping
  */
 export function detectColumnMapping(
   headers: string[],
@@ -111,46 +193,198 @@ export function detectColumnMapping(
 }
 
 /**
- * Validate student import data
+ * Helper to parse boolean values from various sheet formats
  */
-export function validateStudentData(row: any): {
+function parseBoolean(val: any): boolean | undefined {
+  if (val === undefined || val === null || val === '') return undefined;
+  if (typeof val === 'boolean') return val;
+  const s = val.toString().trim().toLowerCase();
+  if (['true', 'yes', 'y', '1', 'in group', 'in-group', 'active'].includes(s)) return true;
+  if (['false', 'no', 'n', '0', 'missing', 'not in group', 'not-in-group'].includes(s))
+    return false;
+  return undefined;
+}
+
+/**
+ * Helper to normalize working device
+ */
+function parseWorkingDevice(val: any): 'Laptop' | 'Desktop' | 'Mobile' | undefined {
+  if (!val) return undefined;
+  const s = val.toString().trim().toLowerCase();
+  if (s.includes('laptop')) return 'Laptop';
+  if (s.includes('desktop') || s.includes('pc')) return 'Desktop';
+  if (s.includes('mobile') || s.includes('phone')) return 'Mobile';
+  return undefined;
+}
+
+/**
+ * Helper to normalize student status
+ */
+function parseStudentStatus(
+  val: any
+): 'On Track' | 'Behind' | 'At Risk' | 'Dropped' | 'Completed' | undefined {
+  if (!val) return undefined;
+  const s = val.toString().trim().toLowerCase();
+  if (s === 'on track' || s === 'ontrack') return 'On Track';
+  if (s === 'behind') return 'Behind';
+  if (s === 'at risk' || s === 'atrisk') return 'At Risk';
+  if (s === 'dropped') return 'Dropped';
+  if (s === 'completed') return 'Completed';
+  return undefined;
+}
+
+/**
+ * Helper to normalize last assignment
+ */
+function parseLastAssignment(val: any): StudentImportData['lastCompletedAssignment'] {
+  if (!val) return undefined;
+  const s = val.toString().trim().toUpperCase();
+  if (s === 'NONE' || s === '0') return 'None';
+  const match = s.match(/\d+/);
+  if (match) {
+    const num = parseInt(match[0], 10);
+    if (num >= 1 && num <= 10) {
+      return `A-${String(num).padStart(2, '0')}` as any;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Helper to normalize program type
+ */
+function parseProgramType(val: any): 'EJP' | 'SCIC' | 'Both' | 'Other' | undefined {
+  if (!val) return undefined;
+  const s = val.toString().trim().toUpperCase();
+  if (s === 'EJP') return 'EJP';
+  if (s === 'SCIC') return 'SCIC';
+  if (s === 'BOTH') return 'Both';
+  if (s === 'OTHER') return 'Other';
+  return undefined;
+}
+
+/**
+ * Validate student import data.
+ * ONLY name, email, and phone are required.
+ * Any other matching database field is captured; unknown fields are ignored.
+ */
+export function validateStudentData(
+  row: any,
+  defaultCohort: string = '14'
+): {
   valid: boolean;
   data?: StudentImportData;
   errors?: string[];
 } {
   try {
-    // Normalize all keys to lowercase first
-    const normalizedRow: Record<string, any> = {};
+    // Map normalized row keys
+    const normalizedKeyMap: Record<string, any> = {};
     for (const key of Object.keys(row)) {
-      normalizedRow[key.toLowerCase().trim()] = row[key];
+      normalizedKeyMap[normalizeFieldName(key)] = row[key];
     }
 
-    const normalized = {
-      name: normalizedRow.name?.toString().trim() || '',
-      email: normalizeEmail(normalizedRow.email),
-      phone: formatPhoneNumber(normalizedRow.phone),
-      whatsapp: formatPhoneNumber(normalizedRow.whatsapp),
-      division: normalizedRow.division?.toString().trim(),
-      institute: normalizedRow.institute?.toString().trim(),
-      educationalBackground: normalizedRow.educationalbackground?.toString().trim(),
-      currentYear: normalizedRow.currentyear?.toString().trim(),
-      group: normalizedRow.group?.toString().trim(),
-      device: normalizedRow.device?.toString().trim(),
+    const getMatchedValue = (field: string) => {
+      const aliases = FIELD_ALIASES[field] || [field.toLowerCase()];
+      for (const alias of aliases) {
+        if (
+          normalizedKeyMap[alias] !== undefined &&
+          normalizedKeyMap[alias] !== null &&
+          normalizedKeyMap[alias] !== ''
+        ) {
+          return normalizedKeyMap[alias];
+        }
+      }
+      return undefined;
     };
 
-    const result = StudentDataSchema.parse(normalized);
+    const rawName = getMatchedValue('name');
+    const rawEmail = getMatchedValue('email');
+    const rawPhone = getMatchedValue('phone');
+    const rawWhatsapp = getMatchedValue('whatsapp');
+    const rawCohort = getMatchedValue('cohort');
+    const rawDivision = getMatchedValue('division');
+    const rawDistrict = getMatchedValue('district');
+    const rawTown = getMatchedValue('town');
+    const rawLivingArea = getMatchedValue('livingArea');
+    const rawOccupation = getMatchedValue('occupation');
+    const rawInstitute = getMatchedValue('institute');
+    const rawEducationalBackground = getMatchedValue('educationalBackground');
+    const rawCurrentYear = getMatchedValue('currentYear');
+    const rawWorkingDevice = getMatchedValue('workingDevice');
+    const rawCurrentStatus = getMatchedValue('currentStatus');
+    const rawLastCompletedAssignment = getMatchedValue('lastCompletedAssignment');
+    const rawMentorshipJoiningStatus = getMatchedValue('mentorshipJoiningStatus');
+    const rawProgramType = getMatchedValue('programType');
+    const rawScicMarks = getMatchedValue('scicMarks');
+    const rawScicConfirmed = getMatchedValue('scicConfirmed');
+    const rawComments = getMatchedValue('comments');
+
+    const normalizedStudent: Record<string, any> = {
+      name: rawName?.toString().trim() || '',
+      email: normalizeEmail(rawEmail),
+      phone: formatPhoneNumber(rawPhone),
+      cohort: cleanCohort(rawCohort) || cleanCohort(defaultCohort) || '14',
+    };
+
+    if (rawWhatsapp) normalizedStudent.whatsapp = formatPhoneNumber(rawWhatsapp) || undefined;
+    if (rawDivision) normalizedStudent.division = rawDivision.toString().trim();
+    if (rawDistrict) normalizedStudent.district = rawDistrict.toString().trim();
+    if (rawTown) normalizedStudent.town = rawTown.toString().trim();
+    if (rawLivingArea) normalizedStudent.livingArea = rawLivingArea.toString().trim();
+    if (rawOccupation) normalizedStudent.occupation = rawOccupation.toString().trim();
+    if (rawInstitute) normalizedStudent.institute = rawInstitute.toString().trim();
+    if (rawEducationalBackground)
+      normalizedStudent.educationalBackground = rawEducationalBackground.toString().trim();
+    if (rawCurrentYear) normalizedStudent.currentYear = rawCurrentYear.toString().trim();
+
+    const device = parseWorkingDevice(rawWorkingDevice);
+    if (device) normalizedStudent.workingDevice = device;
+
+    const status = parseStudentStatus(rawCurrentStatus);
+    if (status) normalizedStudent.currentStatus = status;
+
+    const lastAssign = parseLastAssignment(rawLastCompletedAssignment);
+    if (lastAssign) normalizedStudent.lastCompletedAssignment = lastAssign;
+
+    const mentorship = parseBoolean(rawMentorshipJoiningStatus);
+    if (mentorship !== undefined) normalizedStudent.mentorshipJoiningStatus = mentorship;
+
+    const program = parseProgramType(rawProgramType);
+    if (program) normalizedStudent.programType = program;
+
+    if (rawScicMarks !== undefined && rawScicMarks !== null && rawScicMarks !== '') {
+      const marks = Number(rawScicMarks);
+      if (!Number.isNaN(marks) && marks >= 0 && marks <= 100) {
+        normalizedStudent.scicMarks = marks;
+      }
+    }
+
+    const scicConf = parseBoolean(rawScicConfirmed);
+    if (scicConf !== undefined) normalizedStudent.scicConfirmed = scicConf;
+
+    if (rawComments) {
+      normalizedStudent.comments = Array.isArray(rawComments)
+        ? rawComments.map((c: any) => c.toString().trim()).filter(Boolean)
+        : [rawComments.toString().trim()].filter(Boolean);
+    }
+
+    const result = StudentDataSchema.parse(normalizedStudent);
     return { valid: true, data: result };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.log({ error });
+      const errorMessages = error.issues.map((issue) => {
+        const fieldName = issue.path.join('.');
+        return fieldName ? `${fieldName}: ${issue.message}` : issue.message;
+      });
       return {
         valid: false,
-        // errors: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+        errors: errorMessages,
       };
     }
     return { valid: false, errors: ['Unknown validation error'] };
   }
 }
+
 /**
  * Validate assignment import data (email only)
  */
@@ -180,7 +414,10 @@ export function validateAssignmentData(row: any): {
 /**
  * Process student import file - returns preview with validation results
  */
-export async function processStudentImportFile(file: File): Promise<{
+export async function processStudentImportFile(
+  file: File,
+  defaultCohort: string = '14'
+): Promise<{
   valid: boolean;
   headers: string[];
   rows: number;
@@ -216,7 +453,7 @@ export async function processStudentImportFile(file: File): Promise<{
   // Validate each row
   for (let i = 0; i < data.length; i++) {
     const row = data[i];
-    const validation = validateStudentData(row);
+    const validation = validateStudentData(row, defaultCohort);
 
     if (validation.valid && validation.data) {
       validRows.push({ ...validation.data, rowIndex: i });

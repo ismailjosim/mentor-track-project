@@ -13,9 +13,12 @@ import { dashboardApi } from '@/lib/api-client';
 import { AlertCircle } from 'lucide-react';
 import type { DashboardStats as DashboardStatsType, StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
+import { useBatch } from '@/components/providers/BatchProvider';
 
 export interface DashboardOverview {
   stats: DashboardStatsType;
+  cohort?: string;
+  availableCohorts?: string[];
   students: StudentWithRelations[];
   failingStudents: StudentWithRelations[];
   failingPagination: { page: number; total: number; pages: number };
@@ -27,9 +30,13 @@ interface DashboardClientProps {
   initialData?: DashboardOverview;
 }
 
-let dashboardMemoryCache: DashboardOverview | null = null;
+const dashboardMemoryCache: Record<string, DashboardOverview> = {};
 
 export function DashboardClient({ initialData }: DashboardClientProps = {}) {
+  const { selectedBatch, setSelectedBatch } = useBatch();
+
+  const selectedCohort = selectedBatch;
+  const [availableCohorts, setAvailableCohorts] = useState<string[]>(['13', '14']);
   const [stats, setStats] = useState<DashboardStatsType | null>(initialData?.stats || null);
   const [allStudents, setAllStudents] = useState<StudentWithRelations[]>(
     initialData?.students || []
@@ -40,7 +47,9 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
   const [callQueueStudents, setCallQueueStudents] = useState<StudentWithRelations[]>(
     initialData?.callQueue || []
   );
-  const [loading, setLoading] = useState(!initialData && !dashboardMemoryCache);
+  const [loading, setLoading] = useState<boolean>(
+    !initialData && !dashboardMemoryCache[selectedCohort]
+  );
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -74,10 +83,13 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
     setCallQueueStudents(data.callQueue);
     setCallQueueTotalPages(data.callQueuePagination.pages);
     setCallQueueTotalCount(data.callQueuePagination.total);
+    if (data.availableCohorts && data.availableCohorts.length > 0) {
+      setAvailableCohorts(data.availableCohorts);
+    }
   }, []);
 
-  const fetchOverviewData = useCallback(async () => {
-    const overviewResponse = await dashboardApi.getOverview();
+  const fetchOverviewData = useCallback(async (cohort: string) => {
+    const overviewResponse = await dashboardApi.getOverview(cohort);
 
     if (overviewResponse.error) {
       throw new Error(overviewResponse.error);
@@ -85,16 +97,57 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
 
     if (overviewResponse.data) {
       const data = overviewResponse.data as DashboardOverview;
-      dashboardMemoryCache = data;
-      applyOverview(data);
+      dashboardMemoryCache[cohort] = data;
+      return data;
     }
-  }, [applyOverview]);
+    return null;
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchOverviewData(selectedBatch)
+      .then((data) => {
+        if (isMounted && data) {
+          applyOverview(data);
+          setFailingPage(1);
+          setCallQueuePage(1);
+          setLastUpdated(new Date());
+        }
+      })
+      .catch((err) => {
+        if (isMounted) {
+          const msg = err instanceof Error ? err.message : 'Failed to switch cohort';
+          setError(msg);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedBatch, fetchOverviewData, applyOverview]);
+
+  const handleCohortChange = (newCohort: string) => {
+    if (dashboardMemoryCache[newCohort]) {
+      applyOverview(dashboardMemoryCache[newCohort]);
+    } else {
+      setLoading(true);
+    }
+    setFailingPage(1);
+    setCallQueuePage(1);
+    setSelectedBatch(newCohort);
+  };
 
   const handleFailingPageChange = async (newPage: number) => {
     setFailingPage(newPage);
     try {
       setFailingLoading(true);
-      const failingResponse = await dashboardApi.getFailingStudents(newPage, 10);
+      const failingResponse = await dashboardApi.getFailingStudents(newPage, 10, selectedCohort);
 
       if (failingResponse.error) {
         throw new Error(failingResponse.error);
@@ -120,7 +173,7 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
     setCallQueuePage(newPage);
     try {
       setCallQueueLoading(true);
-      const callQueueResponse = await dashboardApi.getCallQueue(newPage, 10);
+      const callQueueResponse = await dashboardApi.getCallQueue(newPage, 10, selectedCohort);
 
       if (callQueueResponse.error) {
         throw new Error(callQueueResponse.error);
@@ -146,15 +199,15 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
     if (initialData) return;
 
     const loadOverview = async () => {
-      if (dashboardMemoryCache) {
-        applyOverview(dashboardMemoryCache);
+      if (dashboardMemoryCache[selectedCohort]) {
+        applyOverview(dashboardMemoryCache[selectedCohort]);
         setLoading(false);
       }
 
       try {
         setError(null);
-        if (!dashboardMemoryCache) setLoading(true);
-        await fetchOverviewData();
+        if (!dashboardMemoryCache[selectedCohort]) setLoading(true);
+        await fetchOverviewData(selectedCohort);
         setLastUpdated(new Date());
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
@@ -165,7 +218,7 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
     };
 
     loadOverview();
-  }, [applyOverview, fetchOverviewData, initialData]);
+  }, [applyOverview, fetchOverviewData, initialData, selectedCohort]);
 
   const filteredFailingStudents =
     statusFilter === 'all'
@@ -177,7 +230,7 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
     try {
       setFailingPage(1);
       setCallQueuePage(1);
-      await fetchOverviewData();
+      await fetchOverviewData(selectedCohort);
       setLastUpdated(new Date());
       toast.success('Dashboard refreshed');
     } catch {
@@ -218,6 +271,9 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
       <DashboardHeader
         lastUpdated={lastUpdated}
         refreshing={refreshing}
+        selectedCohort={selectedCohort}
+        availableCohorts={availableCohorts}
+        onCohortChange={handleCohortChange}
         onRefresh={handleRefresh}
         onExportCallList={handleExportCallList}
       />

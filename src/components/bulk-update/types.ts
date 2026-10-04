@@ -14,6 +14,6 @@ export const ASSIGNMENTS = Array.from({ length: 10 }, (_, i) => ({
 
 export const parseEmails = (text: string): string[] =>
   text
-    .split('\n')
+    .split(/[\r\n,;]+/)
     .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
+    .filter((e) => Boolean(e) && e.includes('@'));

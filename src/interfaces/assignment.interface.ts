@@ -3,6 +3,7 @@ export type AssignmentStatus = 'PENDING' | 'SUBMITTED' | 'COMPLETED' | 'NOT_DEFI
 export interface Assignment {
   assignmentNumber: number;
   status: AssignmentStatus;
+  marks?: number;
   date?: Date;
   notes?: string;
 }

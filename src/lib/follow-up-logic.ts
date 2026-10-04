@@ -185,19 +185,24 @@ export const isFollowUpNeeded = async (studentId: string, ownerId: string): Prom
  * - No calls in X days
  * - Pending assignments
  */
-export const getCallQueue = async (limit: number = 50, ownerId: string) => {
+export const getCallQueue = async (limit: number = 50, ownerId: string, cohort?: string) => {
   try {
     const now = new Date();
 
     const settings = await Settings.findOne({ ownerId }).lean();
     const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
 
-    const candidates = await Student.find({
+    const candidateFilter: any = {
       ownerId,
       currentStatus: {
         $nin: ['Dropped', 'Completed'],
       },
-    }).lean();
+    };
+    if (cohort && cohort !== 'all') {
+      candidateFilter.cohort = cohort;
+    }
+
+    const candidates = await Student.find(candidateFilter).lean();
 
     const students = candidates.filter((student: any) => {
       const currentAssignment = student.assignments?.find(
@@ -317,24 +322,28 @@ export const getCallQueue = async (limit: number = 50, ownerId: string) => {
 /**
  * Fast count of students needing calls without enrichment
  */
-export const getCallQueueCount = async (ownerId: string): Promise<number> => {
+export const getCallQueueCount = async (ownerId: string, cohort?: string): Promise<number> => {
   try {
     const settings = await Settings.findOne({ ownerId }).select('currentAssignment').lean();
     const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
 
-    const candidates = await Student.find({
+    const filter: Record<string, unknown> = {
       ownerId,
       currentStatus: { $nin: ['Dropped', 'Completed'] },
-    })
-      .select('assignments')
-      .lean();
+      assignments: {
+        $not: {
+          $elemMatch: {
+            assignmentNumber: currentAssignmentNumber,
+            status: { $in: ['SUBMITTED', 'COMPLETED'] },
+          },
+        },
+      },
+    };
+    if (cohort && cohort !== 'all') {
+      filter.cohort = cohort;
+    }
 
-    return candidates.filter((student: any) => {
-      const currentAssignment = student.assignments?.find(
-        (assignment: any) => assignment.assignmentNumber === currentAssignmentNumber
-      );
-      return !isAssignmentSubmitted(currentAssignment);
-    }).length;
+    return await Student.countDocuments(filter);
   } catch (error) {
     console.error('Failed to get call queue count:', error);
     return 0;

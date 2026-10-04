@@ -17,7 +17,7 @@ const StudentOverviewPanel = ({
   studentId,
 }: StudentOverviewPanelProps) => {
   return (
-    <aside className="space-y-6">
+    <aside className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
       <StudentProfileCard student={student} onUpdate={onUpdate} />
       <AssignmentChecklist assignments={assignments} studentId={studentId} onUpdate={onUpdate} />
     </aside>

@@ -1,13 +1,42 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
 import { StudentsTableFilters } from './StudentsTableFilters';
 import { StudentsTablePagination } from './StudentsTablePagination';
 import { DeleteStudentModal } from './DeleteStudentModal';
 import { StudentsTableRow } from './StudentsTableRow';
 import { StudentsTableSkeleton } from './StudentsTableSkeleton';
-import { type StudentsTableProps, PAGE_SIZE } from './types';
+import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
+import type { StudentWithRelations } from '@/types';
+import {
+  type StudentsTableProps,
+  type StudentTableFilters,
+  type StudentFilterKey,
+  PAGE_SIZE,
+} from './types';
+
+const columns: ColumnDef<StudentWithRelations>[] = [
+  { id: 'student', header: 'Student', accessorKey: 'name' },
+  { id: 'progress', header: 'Progress', accessorKey: 'lastCompletedAssignment' },
+  { id: 'status', header: 'Status', accessorKey: 'currentStatus' },
+  { id: 'group', header: 'Group', accessorKey: 'mentorshipJoiningStatus' },
+  { id: 'division', header: 'Division', accessorKey: 'division' },
+  { id: 'device', header: 'Device', accessorKey: 'workingDevice' },
+  { id: 'action', header: 'Action' },
+];
+
+const defaultLocalFilters: StudentTableFilters = {
+  search: '',
+  cohort: 'all',
+  status: 'all',
+  progress: 'all',
+  group: 'all',
+  device: 'all',
+  programType: 'all',
+};
 
 export function StudentsTable({
   students,
@@ -16,37 +45,28 @@ export function StudentsTable({
   totalStudents = 0,
   onPageChange,
   isLoading = false,
-  search = '',
-  onSearchChange,
-  statusFilter = 'all',
-  onStatusFilterChange,
-  progressFilter = 'all',
-  onProgressFilterChange,
-  groupFilter = 'all',
-  onGroupFilterChange,
-  deviceFilter = 'all',
-  onDeviceFilterChange,
-  programFilter = 'all',
-  onProgramFilterChange,
+  filters,
+  onFilterChange,
   onResetFilters,
   onExportFiltered,
   isExporting = false,
+  // Optional legacy props
+  search,
+  onSearchChange,
+  statusFilter,
+  onStatusFilterChange,
+  progressFilter,
+  onProgressFilterChange,
+  groupFilter,
+  onGroupFilterChange,
+  deviceFilter,
+  onDeviceFilterChange,
+  cohortFilter,
+  onCohortFilterChange,
+  programFilter,
+  onProgramFilterChange,
 }: StudentsTableProps) {
-  const hasExternalState =
-    !!onSearchChange &&
-    !!onStatusFilterChange &&
-    !!onProgressFilterChange &&
-    !!onGroupFilterChange &&
-    !!onDeviceFilterChange &&
-    !!onProgramFilterChange &&
-    !!onResetFilters;
-
-  const [localSearch, setLocalSearch] = useState('');
-  const [localStatusFilter, setLocalStatusFilter] = useState('all');
-  const [localProgressFilter, setLocalProgressFilter] = useState('all');
-  const [localGroupFilter, setLocalGroupFilter] = useState('all');
-  const [localDeviceFilter, setLocalDeviceFilter] = useState('all');
-  const [localProgramFilter, setLocalProgramFilter] = useState('all');
+  const [localFilters, setLocalFilters] = useState<StudentTableFilters>(defaultLocalFilters);
   const [clientPage, setClientPage] = useState(1);
 
   const [deleteModal, setDeleteModal] = useState<{
@@ -56,63 +76,81 @@ export function StudentsTable({
   }>({ isOpen: false });
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const effectiveSearch = hasExternalState ? search : localSearch;
-  const effectiveStatusFilter = hasExternalState ? statusFilter : localStatusFilter;
-  const effectiveProgressFilter = hasExternalState ? progressFilter : localProgressFilter;
-  const effectiveGroupFilter = hasExternalState ? groupFilter : localGroupFilter;
-  const effectiveDeviceFilter = hasExternalState ? deviceFilter : localDeviceFilter;
-  const effectiveProgramFilter = hasExternalState ? programFilter : localProgramFilter;
+  const effectiveFilters: StudentTableFilters = useMemo(
+    () => ({
+      search: filters?.search ?? search ?? localFilters.search,
+      cohort: filters?.cohort ?? cohortFilter ?? localFilters.cohort,
+      status: filters?.status ?? statusFilter ?? localFilters.status,
+      progress: filters?.progress ?? progressFilter ?? localFilters.progress,
+      group: filters?.group ?? groupFilter ?? localFilters.group,
+      device: filters?.device ?? deviceFilter ?? localFilters.device,
+      programType: filters?.programType ?? programFilter ?? localFilters.programType,
+    }),
+    [
+      filters,
+      search,
+      cohortFilter,
+      statusFilter,
+      progressFilter,
+      groupFilter,
+      deviceFilter,
+      programFilter,
+      localFilters,
+    ]
+  );
 
   const hasActiveFilters =
-    !!effectiveSearch ||
-    effectiveStatusFilter !== 'all' ||
-    effectiveProgressFilter !== 'all' ||
-    effectiveGroupFilter !== 'all' ||
-    effectiveDeviceFilter !== 'all' ||
-    effectiveProgramFilter !== 'all';
+    !!effectiveFilters.search ||
+    effectiveFilters.cohort !== 'all' ||
+    effectiveFilters.status !== 'all' ||
+    effectiveFilters.progress !== 'all' ||
+    effectiveFilters.group !== 'all' ||
+    effectiveFilters.device !== 'all' ||
+    effectiveFilters.programType !== 'all';
 
   const isServerPaginated = !!onPageChange;
 
   const filtered = useMemo(() => {
     if (isServerPaginated) return students;
 
-    const q = effectiveSearch.toLowerCase();
-    return students.filter((s) => {
-      const matchSearch =
-        s.name.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        (s.phone ?? '').includes(q);
+    const q = effectiveFilters.search.toLowerCase().trim();
+    const qDigits = q.replace(/\D/g, '');
+    return students
+      .filter((s) => {
+        const sPhoneDigits = (s.phone ?? '').replace(/\D/g, '');
+        const sWhatsappDigits = (s.whatsapp ?? '').replace(/\D/g, '');
+        const matchSearch =
+          !q ||
+          s.name.toLowerCase().includes(q) ||
+          s.email.toLowerCase().includes(q) ||
+          (s.phone ?? '').toLowerCase().includes(q) ||
+          (qDigits.length >= 2 &&
+            (sPhoneDigits.includes(qDigits) || sWhatsappDigits.includes(qDigits)));
 
-      const matchStatus =
-        effectiveStatusFilter === 'all' || s.currentStatus === effectiveStatusFilter;
-      const matchProgress =
-        effectiveProgressFilter === 'all' ||
-        getLastAssignmentNumber(s.lastCompletedAssignment) === Number(effectiveProgressFilter);
-      const matchGroup =
-        effectiveGroupFilter === 'all' ||
-        (effectiveGroupFilter === 'in-group' && s.mentorshipJoiningStatus) ||
-        (effectiveGroupFilter === 'missing' && !s.mentorshipJoiningStatus);
-      const matchDevice =
-        effectiveDeviceFilter === 'all' ||
-        (effectiveDeviceFilter === 'none' && !s.workingDevice) ||
-        s.workingDevice === effectiveDeviceFilter;
-      const matchProgram =
-        effectiveProgramFilter === 'all' || s.programType === effectiveProgramFilter;
+        const matchStatus =
+          effectiveFilters.status === 'all' || s.currentStatus === effectiveFilters.status;
+        const matchProgress =
+          effectiveFilters.progress === 'all' ||
+          getLastAssignmentNumber(s.lastCompletedAssignment) === Number(effectiveFilters.progress);
+        const matchGroup =
+          effectiveFilters.group === 'all' ||
+          (effectiveFilters.group === 'in-group' && s.mentorshipJoiningStatus) ||
+          (effectiveFilters.group === 'missing' && !s.mentorshipJoiningStatus);
+        const matchDevice =
+          effectiveFilters.device === 'all' ||
+          (effectiveFilters.device === 'none' && !s.workingDevice) ||
+          s.workingDevice === effectiveFilters.device;
+        const matchProgram =
+          effectiveFilters.programType === 'all' || s.programType === effectiveFilters.programType;
 
-      return (
-        matchSearch && matchStatus && matchProgress && matchGroup && matchDevice && matchProgram
+        return (
+          matchSearch && matchStatus && matchProgress && matchGroup && matchDevice && matchProgram
+        );
+      })
+      .sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
       );
-    });
-  }, [
-    students,
-    effectiveSearch,
-    effectiveStatusFilter,
-    effectiveProgressFilter,
-    effectiveGroupFilter,
-    effectiveDeviceFilter,
-    effectiveProgramFilter,
-    isServerPaginated,
-  ]);
+  }, [students, effectiveFilters, isServerPaginated]);
 
   const clientTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = useMemo(() => {
@@ -124,70 +162,28 @@ export function StudentsTable({
   const displayPage = isServerPaginated ? currentPage : clientPage;
   const displayTotalPages = isServerPaginated ? totalPages : clientTotalPages;
 
-  const handleSearch = (val: string) => {
-    if (hasExternalState && onSearchChange) {
-      onSearchChange(val);
-    } else {
-      setLocalSearch(val);
-      setClientPage(1);
+  const handleFilterChange = (key: StudentFilterKey, val: string) => {
+    if (onFilterChange) {
+      onFilterChange(key, val);
+      return;
     }
-  };
+    if (key === 'search' && onSearchChange) return onSearchChange(val);
+    if (key === 'cohort' && onCohortFilterChange) return onCohortFilterChange(val);
+    if (key === 'status' && onStatusFilterChange) return onStatusFilterChange(val);
+    if (key === 'progress' && onProgressFilterChange) return onProgressFilterChange(val);
+    if (key === 'group' && onGroupFilterChange) return onGroupFilterChange(val);
+    if (key === 'device' && onDeviceFilterChange) return onDeviceFilterChange(val);
+    if (key === 'programType' && onProgramFilterChange) return onProgramFilterChange(val);
 
-  const handleStatusFilter = (val: string) => {
-    if (hasExternalState && onStatusFilterChange) {
-      onStatusFilterChange(val);
-    } else {
-      setLocalStatusFilter(val);
-      setClientPage(1);
-    }
-  };
-
-  const handleProgressFilter = (val: string) => {
-    if (hasExternalState && onProgressFilterChange) {
-      onProgressFilterChange(val);
-    } else {
-      setLocalProgressFilter(val);
-      setClientPage(1);
-    }
-  };
-
-  const handleGroupFilter = (val: string) => {
-    if (hasExternalState && onGroupFilterChange) {
-      onGroupFilterChange(val);
-    } else {
-      setLocalGroupFilter(val);
-      setClientPage(1);
-    }
-  };
-
-  const handleDeviceFilter = (val: string) => {
-    if (hasExternalState && onDeviceFilterChange) {
-      onDeviceFilterChange(val);
-    } else {
-      setLocalDeviceFilter(val);
-      setClientPage(1);
-    }
-  };
-
-  const handleProgramFilter = (val: string) => {
-    if (hasExternalState && onProgramFilterChange) {
-      onProgramFilterChange(val);
-    } else {
-      setLocalProgramFilter(val);
-      setClientPage(1);
-    }
+    setLocalFilters((prev) => ({ ...prev, [key]: val }));
+    setClientPage(1);
   };
 
   const resetFilters = () => {
-    if (hasExternalState && onResetFilters) {
+    if (onResetFilters) {
       onResetFilters();
     } else {
-      setLocalSearch('');
-      setLocalStatusFilter('all');
-      setLocalProgressFilter('all');
-      setLocalGroupFilter('all');
-      setLocalDeviceFilter('all');
-      setLocalProgramFilter('all');
+      setLocalFilters(defaultLocalFilters);
       setClientPage(1);
     }
   };
@@ -204,6 +200,8 @@ export function StudentsTable({
     setDeleteModal({ isOpen: true, studentId, studentName });
   };
 
+  const queryClient = useQueryClient();
+
   const handleConfirmDelete = async () => {
     if (!deleteModal.studentId) return;
 
@@ -219,10 +217,10 @@ export function StudentsTable({
       }
 
       setDeleteModal({ isOpen: false });
-      window.location.reload();
+      toast.success('Student deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['students'] });
     } catch (error) {
-      console.error('Error deleting student:', error);
-      alert(
+      toast.error(
         `Failed to delete student: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     } finally {
@@ -230,21 +228,20 @@ export function StudentsTable({
     }
   };
 
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: paginated,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true,
+    pageCount: displayTotalPages,
+  });
+
   return (
     <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
       <StudentsTableFilters
-        search={effectiveSearch}
-        onSearchChange={handleSearch}
-        statusFilter={effectiveStatusFilter}
-        onStatusFilterChange={handleStatusFilter}
-        progressFilter={effectiveProgressFilter}
-        onProgressFilterChange={handleProgressFilter}
-        groupFilter={effectiveGroupFilter}
-        onGroupFilterChange={handleGroupFilter}
-        deviceFilter={effectiveDeviceFilter}
-        onDeviceFilterChange={handleDeviceFilter}
-        programFilter={effectiveProgramFilter}
-        onProgramFilterChange={handleProgramFilter}
+        filters={effectiveFilters}
+        onFilterChange={handleFilterChange}
         onResetFilters={resetFilters}
         onExportFiltered={onExportFiltered}
         isExporting={isExporting}
@@ -254,29 +251,31 @@ export function StudentsTable({
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/10">
-              <th className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Student
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Progress
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Status
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Group
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Division
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Device
-              </th>
-              <th className="text-right px-6 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Action
-              </th>
-            </tr>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id} className="border-b bg-muted/10">
+                {headerGroup.headers.map((header) => {
+                  const id = header.id;
+                  const isStudent = id === 'student';
+                  const isAction = id === 'action';
+                  return (
+                    <th
+                      key={header.id}
+                      className={`py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${
+                        isStudent
+                          ? 'text-left px-6'
+                          : isAction
+                            ? 'text-right px-6'
+                            : 'text-left px-4'
+                      }`}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  );
+                })}
+              </tr>
+            ))}
           </thead>
 
           <tbody className="divide-y divide-border">

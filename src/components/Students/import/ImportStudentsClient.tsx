@@ -13,6 +13,7 @@ import { ImportSuccessSection } from './ImportSuccessSection';
 export function ImportStudentsClient() {
   const [step, setStep] = useState<ImportStep>('upload');
   const [file, setFile] = useState<File | null>(null);
+  const [cohort, setCohort] = useState<string>('14');
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [importing, setImporting] = useState(false);
 
@@ -22,6 +23,7 @@ export function ImportStudentsClient() {
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('cohort', cohort);
       formData.append('previewOnly', 'true');
 
       const response = await fetch('/api/students/import', {
@@ -52,6 +54,7 @@ export function ImportStudentsClient() {
 
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('cohort', cohort);
       formData.append('confirmed', 'true');
 
       const response = await fetch('/api/students/import', {
@@ -66,7 +69,7 @@ export function ImportStudentsClient() {
 
       const result = await response.json();
       setStep('success');
-      toast.success(`Successfully imported ${result.summary.created} students!`);
+      toast.success(result.message || `Successfully imported students into Batch ${cohort}!`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Import failed';
       toast.error(message);
@@ -108,12 +111,19 @@ export function ImportStudentsClient() {
         </div>
       </div>
 
-      {step === 'upload' && <ImportDropzone onFileSelect={handleFileSelect} />}
+      {step === 'upload' && (
+        <ImportDropzone
+          cohort={cohort}
+          onCohortChange={setCohort}
+          onFileSelect={handleFileSelect}
+        />
+      )}
 
       {step === 'preview' && preview && (
         <ImportPreviewSection
           preview={preview}
           importing={importing}
+          cohort={cohort}
           onImport={handleImport}
           onReset={handleReset}
         />

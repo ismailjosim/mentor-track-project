@@ -9,7 +9,6 @@ import {
   Menu,
   X,
   LogOut,
-  User,
   Command,
   FileBarChart,
 } from 'lucide-react';
@@ -18,6 +17,8 @@ import { PAGE_ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
 import { BrandLogo } from '@/components/BrandLogo';
 import { ThemeToggler } from './ThemeToggler';
+import { BatchSelector } from './BatchSelector';
+import { UserAvatar } from '@/components/Students/StudentAvatar';
 import { authClient } from '@/lib/auth-client';
 
 const navLinks = [
@@ -112,19 +113,18 @@ export function Navbar() {
           )}
         </div>
 
-        {/* User Section */}
-        <div className="flex items-center gap-3">
+        {/* User Section & Batch Selector */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <BatchSelector />
           <ThemeToggler />
 
           {session?.user ? (
             <div className="hidden items-center gap-2 md:flex">
               <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-card/70 px-2.5 py-1.5">
-                <div className="grid size-7 place-items-center rounded-lg bg-secondary text-secondary-foreground">
-                  <User className="size-3.5" />
-                </div>
+                <UserAvatar name={session.user.name} size="sm" className="size-7" />
                 <div className="text-sm">
-                  <p className="font-medium">{session.user.name}</p>
-                  <p className="max-w-32 truncate text-[11px] text-muted-foreground">
+                  <p className="font-medium leading-none">{session.user.name}</p>
+                  <p className="max-w-32 truncate text-[11px] text-muted-foreground mt-0.5">
                     {session.user.email}
                   </p>
                 </div>
@@ -174,20 +174,23 @@ export function Navbar() {
               );
             })}
 
-            <div className="mt-2 flex items-center gap-2 rounded-xl border bg-card p-3 text-xs text-muted-foreground">
-              <Command className="size-4 text-primary" />
-              Cohort workspace
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border bg-card p-3 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <Command className="size-4 text-primary" />
+                <span>Active Cohort</span>
+              </div>
+              <BatchSelector compact />
             </div>
 
             {/* Mobile User Section */}
             {session?.user && (
               <>
                 <div className="border-t my-3 pt-3">
-                  <div className="flex items-center gap-2 px-4 py-2">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                    <div className="text-sm">
-                      <p className="font-medium">{session.user.name}</p>
-                      <p className="text-xs text-muted-foreground">{session.user.email}</p>
+                  <div className="flex items-center gap-3 px-4 py-2">
+                    <UserAvatar name={session.user.name} size="sm" className="size-8" />
+                    <div className="text-sm min-w-0">
+                      <p className="font-medium truncate">{session.user.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
                     </div>
                   </div>
                   <button

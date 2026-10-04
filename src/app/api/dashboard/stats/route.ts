@@ -3,64 +3,72 @@ import { createResponse, handleDbError } from '@/lib/utils';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { getCallQueueCount } from '@/lib/follow-up-logic';
 import Student from '@/models/Student';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await connectDB();
     const authResult = await requireCurrentUserId();
     if (authResult.response) return authResult.response;
     const userId = authResult.userId;
 
-    // Get total students
-    const totalStudents = await Student.countDocuments({ ownerId: userId });
+    const { searchParams } = new URL(request.url);
+    const rawCohort = searchParams.get('cohort');
+    const selectedCohort =
+      rawCohort && rawCohort !== 'all' ? rawCohort.trim().replace(/[^\d]/g, '') : null;
 
-    // Get at-risk students (Behind or At Risk status)
-    const atRiskStudents = await Student.countDocuments({
-      ownerId: userId,
-      currentStatus: { $in: ['Behind', 'At Risk'] },
-    });
+    const baseFilter: Record<string, unknown> = { ownerId: userId };
+    if (selectedCohort) {
+      baseFilter.cohort = selectedCohort;
+    }
 
-    // Get students needing calls count
-    const studentsNeedingCalls = await getCallQueueCount(userId);
-
-    // Get on-track students
-    const onTrackStudents = await Student.countDocuments({
-      ownerId: userId,
-      currentStatus: 'On Track',
-    });
-
-    // Get completed students
-    const completedStudents = await Student.countDocuments({
-      ownerId: userId,
-      currentStatus: 'Completed',
-    });
-
-    // Get total and completed assignments from embedded arrays
-    // Total possible assignments is students * 10 (10 assignments per student)
-    const assignmentStats = await Student.aggregate([
-      {
-        $match: { ownerId: userId },
-      },
-      {
-        $group: {
-          _id: null,
-          totalAssignmentsCreated: {
-            $sum: { $size: { $ifNull: ['$assignments', []] } },
-          },
-          totalCompleted: {
-            $sum: {
-              $size: {
-                $filter: {
-                  input: { $ifNull: ['$assignments', []] },
-                  as: 'assignment',
-                  cond: { $eq: ['$$assignment.status', 'COMPLETED'] },
+    // Query dashboard stats concurrently with Promise.all to eliminate sequential waterfall
+    const [
+      totalStudents,
+      atRiskStudents,
+      studentsNeedingCalls,
+      onTrackStudents,
+      completedStudents,
+      assignmentStats,
+    ] = await Promise.all([
+      Student.countDocuments(baseFilter),
+      Student.countDocuments({
+        ...baseFilter,
+        currentStatus: { $in: ['Behind', 'At Risk'] },
+      }),
+      getCallQueueCount(userId, selectedCohort || undefined),
+      Student.countDocuments({
+        ...baseFilter,
+        currentStatus: 'On Track',
+      }),
+      Student.countDocuments({
+        ...baseFilter,
+        currentStatus: 'Completed',
+      }),
+      Student.aggregate([
+        {
+          $match: baseFilter,
+        },
+        {
+          $group: {
+            _id: null,
+            totalAssignmentsCreated: {
+              $sum: { $size: { $ifNull: ['$assignments', []] } },
+            },
+            totalCompleted: {
+              $sum: {
+                $size: {
+                  $filter: {
+                    input: { $ifNull: ['$assignments', []] },
+                    as: 'assignment',
+                    cond: { $eq: ['$$assignment.status', 'COMPLETED'] },
+                  },
                 },
               },
             },
           },
         },
-      },
+      ]),
     ]);
 
     const totalAssignmentsCreated = assignmentStats[0]?.totalAssignmentsCreated || 0;

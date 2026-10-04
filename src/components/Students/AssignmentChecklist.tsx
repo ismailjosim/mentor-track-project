@@ -25,6 +25,7 @@ export function AssignmentChecklist({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [newStatus, setNewStatus] = useState<string>('');
+  const [newMarks, setNewMarks] = useState<string>('');
 
   // Build a map for quick lookup
   const assignmentMap = new Map(assignments.map((a) => [a.assignmentNumber, a]));
@@ -35,13 +36,14 @@ export function AssignmentChecklist({
   const pct = Math.round((completed / TOTAL) * 100);
 
   const handleAssignmentClick = (assignment: Assignment | undefined, num: number) => {
-    const a = assignment || {
+    const a: Assignment = assignment || {
       assignmentNumber: num,
-      status: 'NOT_DEFINED' as const,
-      studentId: _studentId,
+      status: 'NOT_DEFINED',
+      marks: undefined,
     };
-    setSelectedAssignment(a as Assignment);
-    setNewStatus(a?.status || 'NOT_DEFINED');
+    setSelectedAssignment(a);
+    setNewStatus(a.status || 'NOT_DEFINED');
+    setNewMarks(a.marks !== undefined && a.marks !== null ? String(a.marks) : '');
     setIsModalOpen(true);
   };
 
@@ -64,11 +66,24 @@ export function AssignmentChecklist({
           return;
         }
       } else {
-        const payload = {
+        const parsedMarks = newMarks.trim() !== '' ? Number(newMarks) : undefined;
+        let effectiveStatus = newStatus;
+
+        // Auto-differentiate based on marks:
+        // If marks provided and status is SUBMITTED, mark as COMPLETED
+        if (effectiveStatus === 'SUBMITTED' && parsedMarks !== undefined && parsedMarks > 0) {
+          effectiveStatus = 'COMPLETED';
+        }
+
+        const payload: Record<string, unknown> = {
           assignmentNumber: selectedAssignment.assignmentNumber,
-          status: newStatus,
+          status: effectiveStatus,
           date: new Date(),
         };
+
+        if (parsedMarks !== undefined && !Number.isNaN(parsedMarks)) {
+          payload.marks = Math.min(100, Math.max(0, parsedMarks));
+        }
 
         if (existingAssignment) {
           response = await assignmentApi.update(_studentId, payload);
@@ -138,7 +153,8 @@ export function AssignmentChecklist({
           {Array.from({ length: TOTAL }, (_, i) => {
             const num = i + 1;
             const a = assignmentMap.get(num);
-            const isDone = a?.status === 'COMPLETED' || a?.status === 'SUBMITTED';
+            const isCompleted = a?.status === 'COMPLETED';
+            const isSubmitted = a?.status === 'SUBMITTED';
             const isPending = a?.status === 'PENDING';
 
             return (
@@ -147,38 +163,54 @@ export function AssignmentChecklist({
                 onClick={() => handleAssignmentClick(a, num)}
                 className={cn(
                   'flex items-center justify-between px-5 py-3 text-sm transition-colors cursor-pointer',
-                  isDone ? 'bg-success-soft/70 hover:bg-success-soft' : 'hover:bg-muted/30'
+                  isCompleted
+                    ? 'bg-success-soft/70 hover:bg-success-soft'
+                    : isSubmitted
+                      ? 'bg-info-soft/70 hover:bg-info-soft'
+                      : 'hover:bg-muted/30'
                 )}
               >
                 <div className="flex items-center gap-3">
-                  {isDone ? (
+                  {isCompleted ? (
                     <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+                  ) : isSubmitted ? (
+                    <Clock className="w-4 h-4 text-info shrink-0" />
                   ) : isPending ? (
                     <Clock className="w-4 h-4 text-amber-500 shrink-0" />
                   ) : (
                     <Circle className="w-4 h-4 text-muted-foreground shrink-0" />
                   )}
-                  <span className={cn('font-medium', isDone && 'text-success-foreground')}>
+                  <span
+                    className={cn(
+                      'font-medium',
+                      isCompleted && 'text-success-foreground',
+                      isSubmitted && 'text-info-foreground'
+                    )}
+                  >
                     Assignment {String(num).padStart(2, '0')}
                   </span>
                 </div>
                 <span
                   className={cn(
-                    'text-xs font-semibold px-2 py-0.5 rounded',
-                    isDone
+                    'text-xs font-semibold px-2 py-0.5 rounded border',
+                    isCompleted
                       ? 'status-success'
-                      : isPending
-                        ? 'status-warning'
-                        : 'bg-muted text-muted-foreground'
+                      : isSubmitted
+                        ? 'status-info'
+                        : isPending
+                          ? 'status-warning'
+                          : 'bg-muted text-muted-foreground border-transparent'
                   )}
                 >
-                  {isDone
-                    ? a?.status === 'SUBMITTED'
-                      ? 'Submitted'
+                  {isCompleted
+                    ? a?.marks !== undefined && a?.marks !== null
+                      ? `Done (${a.marks})`
                       : 'Done'
-                    : isPending
-                      ? 'Pending'
-                      : '—'}
+                    : isSubmitted
+                      ? 'Submitted'
+                      : isPending
+                        ? 'Pending'
+                        : '—'}
                 </span>
               </div>
             );
@@ -196,15 +228,28 @@ export function AssignmentChecklist({
           <div className="space-y-4">
             <div>
               <p className="text-sm font-medium text-foreground mb-2">Current Status</p>
-              <p className="text-sm text-muted-foreground">
-                {selectedAssignment?.status === 'COMPLETED'
-                  ? 'Completed'
-                  : selectedAssignment?.status === 'SUBMITTED'
-                    ? 'Submitted'
-                    : selectedAssignment?.status === 'PENDING'
-                      ? 'Pending'
-                      : 'Not defined'}
-              </p>
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    'text-xs font-semibold px-2.5 py-1 rounded border',
+                    selectedAssignment?.status === 'COMPLETED'
+                      ? 'status-success'
+                      : selectedAssignment?.status === 'SUBMITTED'
+                        ? 'status-info'
+                        : selectedAssignment?.status === 'PENDING'
+                          ? 'status-warning'
+                          : 'bg-muted text-muted-foreground'
+                  )}
+                >
+                  {selectedAssignment?.status === 'COMPLETED'
+                    ? `Completed ${selectedAssignment?.marks !== undefined ? `(${selectedAssignment.marks} marks)` : ''}`
+                    : selectedAssignment?.status === 'SUBMITTED'
+                      ? 'Submitted (No Marks Yet)'
+                      : selectedAssignment?.status === 'PENDING'
+                        ? 'Pending'
+                        : 'Not defined'}
+                </span>
+              </div>
             </div>
 
             <div>
@@ -213,15 +258,51 @@ export function AssignmentChecklist({
               </label>
               <select
                 value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewStatus(val);
+                }}
                 disabled={isLoading}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50"
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50 text-sm"
               >
                 <option value="NOT_DEFINED">Not Defined</option>
                 <option value="PENDING">Pending</option>
-                <option value="SUBMITTED">Submitted</option>
-                <option value="COMPLETED">Completed</option>
+                <option value="SUBMITTED">Submitted (Pending Marks)</option>
+                <option value="COMPLETED">Completed (Graded)</option>
               </select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Assignment Marks (0-100)
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={newMarks}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewMarks(val);
+                  if (val.trim() !== '' && Number(val) > 0 && newStatus === 'SUBMITTED') {
+                    setNewStatus('COMPLETED');
+                  }
+                }}
+                placeholder="Leave blank if not marked yet"
+                disabled={isLoading}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50 text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                {newStatus === 'SUBMITTED' ? (
+                  <span className="text-info font-medium">
+                    Status is Submitted (pending marks). Card will appear in blue.
+                  </span>
+                ) : newStatus === 'COMPLETED' ? (
+                  <span className="text-success font-medium">
+                    Status is Completed (graded). Card will appear in green.
+                  </span>
+                ) : null}
+              </p>
             </div>
 
             {selectedAssignment?.date && (
@@ -261,7 +342,13 @@ export function AssignmentChecklist({
           <button
             onClick={handleStatusChange}
             disabled={
-              isLoading || (selectedAssignment ? newStatus === selectedAssignment.status : false)
+              isLoading ||
+              (selectedAssignment
+                ? newStatus === selectedAssignment.status &&
+                  (newMarks.trim() === ''
+                    ? selectedAssignment.marks === undefined
+                    : Number(newMarks) === selectedAssignment.marks)
+                : false)
             }
             className="px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
           >

@@ -45,25 +45,25 @@ export function BulkUpdateTabs() {
   return (
     <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
       {/* Tab Switcher */}
-      <div className="flex border-b">
+      <div className="flex border-b overflow-x-auto scrollbar-none">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => handleTabChange(key)}
             className={cn(
-              'flex items-center gap-2 px-5 py-3.5 text-sm font-medium border-b-2 transition-colors',
+              'flex items-center gap-2 px-4 py-3 sm:px-5 sm:py-3.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap shrink-0',
               activeTab === key
                 ? 'border-primary text-primary bg-primary/5'
                 : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
             )}
           >
-            <Icon className="w-4 h-4" />
+            <Icon className="w-4 h-4 shrink-0" />
             {label}
           </button>
         ))}
       </div>
 
-      <div className="p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-5">
         {committedMessage && (
           <div className="flex items-center gap-3 p-4 bg-green-50/80 border border-green-200 dark:bg-green-950/20 dark:border-green-900/50 rounded-lg text-green-800 dark:text-green-300 text-sm">
             <CheckCircle2 className="w-5 h-5 shrink-0 text-green-600" />

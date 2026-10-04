@@ -4,6 +4,7 @@ import Student from '@/models/Student';
 import { connectDB } from '@/lib/mongodb';
 import { generateCallList, exportToExcel, generateExportFilename } from '@/lib/export';
 import { requireCurrentUserId } from '@/lib/auth-utils';
+import { escapeRegex } from '@/lib/utils';
 import { NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -24,16 +25,24 @@ export async function GET(request: NextRequest) {
     const filter: any = { ownerId: userId };
     const andConditions: any[] = [];
 
-    if (search) {
-      if (search.includes('@')) {
-        filter.email = search.toLowerCase();
+    if (search && search.trim()) {
+      const cleanSearch = search.trim();
+      const escaped = escapeRegex(cleanSearch);
+      const digits = cleanSearch.replace(/\D/g, '');
+
+      const searchConditions: any[] = [
+        { name: { $regex: escaped, $options: 'i' } },
+        { email: { $regex: escaped, $options: 'i' } },
+      ];
+
+      if (digits.length >= 2) {
+        searchConditions.push({ phone: { $regex: digits, $options: 'i' } });
+        searchConditions.push({ whatsapp: { $regex: digits, $options: 'i' } });
       } else {
-        filter.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { phone: { $regex: search.replace(/\D/g, ''), $options: 'i' } },
-        ];
+        searchConditions.push({ phone: { $regex: escaped, $options: 'i' } });
       }
+
+      andConditions.push({ $or: searchConditions });
     }
 
     if (status && status !== 'all') {

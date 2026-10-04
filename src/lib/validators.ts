@@ -28,6 +28,7 @@ export const StudentCreateSchema = z.object({
   email: z.string().email('Invalid email address').toLowerCase().trim(),
   phone: z.string().min(10, 'Phone number must be at least 10 digits'),
   whatsapp: z.string().optional(),
+  cohort: z.string().optional().default('13'),
   division: z.string().optional(),
   district: z.string().optional(),
   town: z.string().optional(),

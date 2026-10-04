@@ -6,6 +6,7 @@ import type { ImportPreview } from './types';
 interface ImportPreviewSectionProps {
   preview: ImportPreview;
   importing: boolean;
+  cohort?: string;
   onImport: () => void;
   onReset: () => void;
 }
@@ -13,11 +14,30 @@ interface ImportPreviewSectionProps {
 export function ImportPreviewSection({
   preview,
   importing,
+  cohort,
   onImport,
   onReset,
 }: ImportPreviewSectionProps) {
+  const targetBatch = preview.cohort || cohort || '14';
+
   return (
     <div className="space-y-6">
+      {/* Target batch banner */}
+      <div className="surface p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Target Batch:
+          </span>
+          <span className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-primary text-primary-foreground shadow-sm">
+            Batch {targetBatch}
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Required: <strong className="text-foreground">Name, Email, Phone</strong>. All other
+          matching columns will be saved.
+        </p>
+      </div>
+
       {/* Import stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="p-4 bg-muted/50 rounded-lg border">

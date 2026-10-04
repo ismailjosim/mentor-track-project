@@ -62,7 +62,10 @@ export function BulkMentorshipTab({ onSuccess, onError }: BulkMentorshipTabProps
   const handleCommitMentorship = async () => {
     try {
       setProcessing(true);
-      const emails = parseEmails(mentorshipEmails);
+      const emails =
+        result?.matchedStudents && result.matchedStudents.length > 0
+          ? result.matchedStudents.map((s) => s.email)
+          : parseEmails(mentorshipEmails);
 
       const response = await fetch('/api/students/bulk-update-mentorship', {
         method: 'POST',

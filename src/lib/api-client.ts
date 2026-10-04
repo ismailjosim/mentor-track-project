@@ -109,6 +109,7 @@ export const studentApi = {
     search: string = '',
     status: string = '',
     filters: {
+      cohort?: string;
       device?: string;
       group?: string;
       progress?: string;
@@ -122,6 +123,7 @@ export const studentApi = {
 
     if (search) params.set('search', search);
     if (status) params.set('status', status);
+    if (filters.cohort) params.set('cohort', filters.cohort);
     if (filters.progress) params.set('progress', filters.progress);
     if (filters.group) params.set('group', filters.group);
     if (filters.device) params.set('device', filters.device);
@@ -213,27 +215,49 @@ export const followUpApi = {
 };
 
 export const dashboardApi = {
-  getOverview: () => apiClient.get('/api/dashboard'),
+  getOverview: (cohort?: string) =>
+    apiClient.get(
+      cohort && cohort !== 'all'
+        ? `/api/dashboard?cohort=${encodeURIComponent(cohort)}`
+        : '/api/dashboard'
+    ),
 
-  getStats: () =>
-    apiClient.get('/api/dashboard/stats', {
-      cacheTags: [CACHE_TAGS.DASHBOARD_STATS],
-    }),
+  getStats: (cohort?: string) =>
+    apiClient.get(
+      cohort && cohort !== 'all'
+        ? `/api/dashboard/stats?cohort=${encodeURIComponent(cohort)}`
+        : '/api/dashboard/stats',
+      {
+        cacheTags: [CACHE_TAGS.DASHBOARD_STATS],
+      }
+    ),
 
-  getFailingStudents: (page: number = 1, limit: number = 10) =>
-    apiClient.get(`/api/dashboard/failing-students?page=${page}&limit=${limit}`, {
-      cacheTags: [CACHE_TAGS.FAILING_STUDENTS],
-    }),
+  getFailingStudents: (page: number = 1, limit: number = 10, cohort?: string) => {
+    const cohortQuery = cohort && cohort !== 'all' ? `&cohort=${encodeURIComponent(cohort)}` : '';
+    return apiClient.get(
+      `/api/dashboard/failing-students?page=${page}&limit=${limit}${cohortQuery}`,
+      {
+        cacheTags: [CACHE_TAGS.FAILING_STUDENTS],
+      }
+    );
+  },
 
-  getCallQueue: (page: number = 1, limit: number = 10) =>
-    apiClient.get(`/api/call-queue?page=${page}&limit=${limit}`, {
+  getCallQueue: (page: number = 1, limit: number = 10, cohort?: string) => {
+    const cohortQuery = cohort && cohort !== 'all' ? `&cohort=${encodeURIComponent(cohort)}` : '';
+    return apiClient.get(`/api/call-queue?page=${page}&limit=${limit}${cohortQuery}`, {
       cacheTags: [CACHE_TAGS.CALL_QUEUE_STUDENTS],
-    }),
+    });
+  },
 
-  getAssignmentStats: () =>
-    apiClient.get('/api/dashboard/assignment-stats', {
-      cacheTags: [CACHE_TAGS.SUBMISSION_DATA, CACHE_TAGS.DASHBOARD_STATS],
-    }),
+  getAssignmentStats: (cohort?: string) =>
+    apiClient.get(
+      cohort && cohort !== 'all'
+        ? `/api/dashboard/assignment-stats?cohort=${encodeURIComponent(cohort)}`
+        : '/api/dashboard/assignment-stats',
+      {
+        cacheTags: [CACHE_TAGS.SUBMISSION_DATA, CACHE_TAGS.DASHBOARD_STATS],
+      }
+    ),
 };
 
 export const reportsApi = {

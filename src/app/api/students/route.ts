@@ -7,6 +7,7 @@ import {
   getPaginationParams,
   logger,
   sanitizeInput,
+  escapeRegex,
 } from '@/lib/utils';
 import { StudentCreateSchema } from '@/lib/validators';
 import Student from '@/models/Student';
@@ -28,12 +29,14 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
+    const cohort = searchParams.get('cohort') || '';
     const progress = searchParams.get('progress') || '';
     const group = searchParams.get('group') || '';
     const device = searchParams.get('device') || '';
     const programType = searchParams.get('programType') || '';
-    const sortBy = searchParams.get('sortBy') || 'createdAt';
-    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
+    const sortBy = searchParams.get('sortBy') || 'name';
+    const sortOrderParam = searchParams.get('sortOrder');
+    const sortOrder = sortOrderParam === 'desc' ? -1 : 1;
 
     const { skip } = getPaginationParams(page, limit);
 
@@ -41,21 +44,34 @@ export async function GET(request: NextRequest) {
     const filter: any = { ownerId: userId };
     const andConditions: any[] = [];
 
-    if (search) {
-      // If search contains @, treat as exact email match; otherwise, fuzzy search
-      if (search.includes('@')) {
-        filter.email = search.toLowerCase();
+    if (search && search.trim()) {
+      const cleanSearch = search.trim();
+      const escaped = escapeRegex(cleanSearch);
+      const digits = cleanSearch.replace(/\D/g, '');
+
+      const searchConditions: any[] = [
+        { name: { $regex: escaped, $options: 'i' } },
+        { email: { $regex: escaped, $options: 'i' } },
+      ];
+
+      // If user typed digits (e.g. phone or partial phone number), match against phone & whatsapp
+      if (digits.length >= 2) {
+        searchConditions.push({ phone: { $regex: digits, $options: 'i' } });
+        searchConditions.push({ whatsapp: { $regex: digits, $options: 'i' } });
       } else {
-        filter.$or = [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { phone: { $regex: search.replace(/\D/g, ''), $options: 'i' } },
-        ];
+        // Otherwise, allow matching exact escaped string against phone field
+        searchConditions.push({ phone: { $regex: escaped, $options: 'i' } });
       }
+
+      andConditions.push({ $or: searchConditions });
     }
 
     if (status) {
       filter.currentStatus = status;
+    }
+
+    if (cohort && cohort !== 'all') {
+      filter.cohort = cohort.trim().replace(/[^\d]/g, '') || cohort;
     }
 
     if (progress) {
@@ -107,31 +123,47 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate sortBy field
-    const allowedSortFields = ['createdAt', 'lastContactedAt', 'lastCompletedAssignment', 'name'];
-    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const allowedSortFields = ['name', 'createdAt', 'lastContactedAt', 'lastCompletedAssignment'];
+    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'name';
 
     const sortObj: any = { [sortField]: sortOrder };
 
+    const query = Student.find(filter).sort(sortObj);
+    if (sortField === 'name') {
+      query.collation({ locale: 'en', strength: 2 });
+    }
+
     const [students, total] = await Promise.all([
-      Student.find(filter).sort(sortObj).skip(skip).limit(limit).lean(),
+      query.skip(skip).limit(limit).lean(),
       Student.countDocuments(filter),
     ]);
 
-    // Enrich students with assignment count and last call date
-    const enrichedStudents = await Promise.all(
-      students.map(async (student: any) => {
-        const assignmentCount = student.assignments?.length || 0;
-        const lastCall = await CallLog.findOne({ studentId: student._id, ownerId: userId })
-          .sort({ date: -1 })
-          .lean();
+    // Batch enrich students with assignment count and last call date (eliminating N+1 query - Rule 6)
+    const studentIds = students.map((s: any) => s._id);
+    const lastCalls =
+      studentIds.length > 0
+        ? await CallLog.aggregate([
+            { $match: { studentId: { $in: studentIds }, ownerId: userId } },
+            { $sort: { date: -1 } },
+            {
+              $group: {
+                _id: '$studentId',
+                lastCallDate: { $first: '$date' },
+              },
+            },
+          ])
+        : [];
 
-        return {
-          ...student,
-          assignmentCount,
-          lastCallDate: lastCall?.date || null,
-        };
-      })
-    );
+    const callMap = new Map<string, string | Date>();
+    for (const call of lastCalls) {
+      callMap.set(String(call._id), call.lastCallDate);
+    }
+
+    const enrichedStudents = students.map((student: any) => ({
+      ...student,
+      assignmentCount: student.assignments?.length || 0,
+      lastCallDate: callMap.get(String(student._id)) || null,
+    }));
 
     const pages = Math.ceil(total / limit);
 
@@ -175,7 +207,11 @@ export async function POST(request: NextRequest) {
     const sanitizedData = sanitizeInput(body);
     const validatedData = StudentCreateSchema.parse(sanitizedData);
 
-    const student = new Student({ ...validatedData, ownerId: userId });
+    const student = new Student({
+      ...validatedData,
+      cohort: validatedData.cohort || '14',
+      ownerId: userId,
+    });
     await student.save();
 
     // Invalidate student-related caches

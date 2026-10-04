@@ -91,14 +91,18 @@ export function handleDbError(error: unknown) {
   }
 
   /**
-   * Default Database Error
+   * Default Database Error - sanitized, never leak raw message to client (Rule 19.4)
    */
+  const errorRef = crypto.randomUUID().slice(0, 8);
+  console.error(`[DbError:${errorRef}]`, error);
+
   return {
     statusCode: 500,
-    message: 'Database error',
+    message: 'An error occurred while processing the database request.',
     errors: [
       {
-        message: error.message,
+        message: 'Internal server error. Please try again later.',
+        errorRef,
       },
     ],
   };
@@ -196,6 +200,13 @@ export function slugify(text: string): string {
  */
 export function isValidObjectId(id: string): boolean {
   return /^[0-9a-fA-F]{24}$/.test(id);
+}
+
+/**
+ * Safely escape string for use in RegExp
+ */
+export function escapeRegex(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**

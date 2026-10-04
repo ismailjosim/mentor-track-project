@@ -23,6 +23,7 @@ export interface StudentDocument {
   email: string;
   phone: string;
   whatsapp?: string;
+  cohort?: string;
 
   // Location
   division?: string;
@@ -90,6 +91,12 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
     whatsapp: {
       type: String,
       trim: true,
+    },
+    cohort: {
+      type: String,
+      default: '13',
+      trim: true,
+      index: true,
     },
 
     // Location
@@ -202,7 +209,20 @@ const StudentSchema = new Schema<StudentDocumentWithMongoose>(
 );
 
 // Create indexes for optimal performance
-StudentSchema.index({ ownerId: 1, email: 1 }, { unique: true });
+StudentSchema.index({ ownerId: 1, cohort: 1, email: 1 }, { unique: true });
+StudentSchema.index({ ownerId: 1, cohort: 1, name: 1 });
+StudentSchema.index({ ownerId: 1, name: 1 });
+StudentSchema.index({ ownerId: 1, cohort: 1 });
+StudentSchema.index({ ownerId: 1, cohort: 1, currentStatus: 1 });
+StudentSchema.index({ ownerId: 1, cohort: 1, currentStatus: 1, createdAt: -1 });
+StudentSchema.index({
+  ownerId: 1,
+  cohort: 1,
+  'assignments.assignmentNumber': 1,
+  'assignments.status': 1,
+});
+StudentSchema.index({ ownerId: 1, phone: 1 });
+StudentSchema.index({ ownerId: 1, email: 1 });
 StudentSchema.index({ ownerId: 1, currentStatus: 1 });
 StudentSchema.index({ ownerId: 1, createdAt: -1 });
 StudentSchema.index({ ownerId: 1, currentStatus: 1, createdAt: -1 });

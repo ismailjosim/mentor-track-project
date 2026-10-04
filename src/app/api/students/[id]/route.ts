@@ -7,7 +7,6 @@ import {
   isValidObjectId,
   logger,
   sanitizeInput,
-  calculateDaysDifference,
 } from '@/lib/utils';
 import { StudentUpdateSchema } from '@/lib/validators';
 import Student from '@/models/Student';
@@ -18,58 +17,31 @@ import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getStudentById } from '@/services/student.service';
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await connectDB();
     const authResult = await requireCurrentUserId();
     if (authResult.response) return authResult.response;
     const userId = authResult.userId;
     const { id } = await params;
 
-    // Validate ObjectId format
-    if (!isValidObjectId(id)) {
-      logger.info('GET /api/students/[id] - Invalid ObjectId', { id });
-      return NextResponse.json(createResponse(400, 'Invalid student ID format'), { status: 400 });
+    const result = await getStudentById(id, userId);
+    if (!result.success) {
+      const statusCode =
+        result.error === 'Student not found'
+          ? 404
+          : result.error === 'Invalid student ID format'
+            ? 400
+            : 500;
+      return NextResponse.json(
+        createResponse(statusCode, result.error || 'Failed to fetch student'),
+        { status: statusCode }
+      );
     }
-
-    const student = await Student.findOne({ _id: id, ownerId: userId }).lean();
-
-    if (!student) {
-      logger.info('GET /api/students/[id] - Not found', { id });
-      return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
-    }
-
-    // Fetch all related data
-    const [callLogs, followUps] = await Promise.all([
-      CallLog.find({ studentId: id, ownerId: userId }).sort({ date: -1 }).lean(),
-      FollowUp.find({ studentId: id, ownerId: userId }).sort({ date: 1 }).lean(),
-    ]);
-
-    // Get assignments from embedded array
-    const assignments = student.assignments || [];
-
-    // Calculate computed fields
-    const totalAssignmentsSubmitted = assignments.filter(
-      (a: any) => a.status === 'SUBMITTED' || a.status === 'COMPLETED'
-    ).length;
-
-    const nextFollowUpDate = followUps.length > 0 ? followUps[0].date : null;
-    const daysSinceLastCall =
-      callLogs.length > 0 ? calculateDaysDifference(callLogs[0].date, new Date()) : null;
-
-    const enrichedStudent = {
-      ...student,
-      assignments,
-      callLogs,
-      followUps,
-      totalAssignmentsSubmitted,
-      nextFollowUpDate,
-      daysSinceLastCall,
-    };
 
     logger.info('GET /api/students/[id] - Success', { id });
-    const response = createResponse(200, 'Student fetched successfully', enrichedStudent);
-    return NextResponse.json(response);
+    return NextResponse.json(createResponse(200, 'Student fetched successfully', result.data));
   } catch (error) {
     logger.error('GET /api/students/[id] - Failed', error);
     const errorData = handleDbError(error);

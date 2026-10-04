@@ -13,6 +13,7 @@ import {
   Monitor,
   Phone,
   Users,
+  Layers,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -53,6 +54,11 @@ export function StudentProfileCard({ student, onUpdate }: StudentProfileCardProp
 
   const details = useMemo(
     () => [
+      {
+        icon: Layers,
+        label: 'Batch / Cohort',
+        value: student.cohort ? `Batch ${student.cohort}` : 'Batch 13',
+      },
       {
         icon: Phone,
         label: 'Phone',
@@ -279,7 +285,7 @@ export function StudentProfileCard({ student, onUpdate }: StudentProfileCardProp
           <button
             onClick={handleSave}
             disabled={isLoading}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             {isLoading ? (
               <>
