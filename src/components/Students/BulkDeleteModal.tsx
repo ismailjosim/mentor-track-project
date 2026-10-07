@@ -48,14 +48,18 @@ export function BulkDeleteModal({
               <p className="text-sm font-semibold text-destructive">This action cannot be undone</p>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 You are about to permanently delete{' '}
-                <span className="font-bold text-foreground">{count} student{count > 1 ? 's' : ''}</span>{' '}
+                <span className="font-bold text-foreground">
+                  {count} student{count > 1 ? 's' : ''}
+                </span>{' '}
                 and all their associated data.
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">The following data will be removed:</p>
+            <p className="text-sm font-medium text-foreground">
+              The following data will be removed:
+            </p>
             <ul className="space-y-1.5">
               {[
                 'Student profiles & personal information',

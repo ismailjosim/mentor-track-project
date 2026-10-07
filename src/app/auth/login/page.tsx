@@ -1,51 +1,67 @@
 'use client';
 
+import { Suspense, useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import toast from 'react-hot-toast';
+import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 import { PasswordInput } from '@/components/auth/PasswordInput';
 import { BrandLogo } from '@/components/BrandLogo';
 import { authClient } from '@/lib/auth-client';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
-import toast from 'react-hot-toast';
-import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
+
+interface LoginFormData {
+  email: string;
+  password: string;
+}
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { data: session } = authClient.useSession();
 
   const requestedCallbackUrl = searchParams.get('callbackUrl');
   const callbackUrl =
     requestedCallbackUrl?.startsWith('/') && !requestedCallbackUrl.startsWith('//')
       ? requestedCallbackUrl
       : '/dashboard';
+
+  useEffect(() => {
+    if (session?.user) {
+      router.replace(callbackUrl);
+    }
+  }, [session, router, callbackUrl]);
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const errorFromUrl = searchParams.get('error');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const { register, handleSubmit } = useForm<LoginFormData>({
+    defaultValues: { email: '', password: '' },
+  });
+
+  const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setError(null);
 
-    if (!email || !password) {
+    if (!data.email || !data.password) {
       setError('Please enter email and password');
       setIsLoading(false);
       return;
     }
 
-    if (!email.includes('@')) {
+    if (!data.email.includes('@')) {
       setError('Please enter a valid email');
       setIsLoading(false);
       return;
     }
 
     await authClient.signIn.email(
-      { email, password },
+      { email: data.email, password: data.password },
       {
         onSuccess: () => {
           toast.success('Login successful!');
@@ -65,17 +81,17 @@ function LoginContent() {
   return (
     <div className="grid min-h-screen bg-background lg:grid-cols-[1.05fr_.95fr]">
       <div className="relative hidden overflow-hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
-        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_25%_20%,white_0,transparent_32%),radial-gradient(circle_at_80%_80%,white_0,transparent_24%)]" />
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_25%_20%,white_0,transparent_32%),radial-gradient(circle_at_80%_80%,white_0,transparent_24%)]" />
         <BrandLogo
           className="relative"
           imageClassName="size-12 rounded-xl bg-white/95 p-1 object-contain shadow-sm"
           textClassName="text-lg font-bold"
         />
         <div className="relative max-w-xl">
-          <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-primary-foreground/65">
+          <p className="mb-4 text-sm font-bold uppercase tracking-wider text-primary-foreground/65">
             Student success, organized
           </p>
-          <h1 className="text-5xl font-bold leading-[1.08] tracking-[-0.05em]">
+          <h1 className="text-5xl font-bold leading-[1.08] tracking-tighter">
             See who needs attention before they fall behind.
           </h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-primary-foreground/75">
@@ -133,16 +149,15 @@ function LoginContent() {
               <span className="h-px flex-1 bg-border" />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div>
-                <label htmlFor="email" className="mb-2 block text-sm font-semibold">
+                <Label htmlFor="email" className="mb-2 block text-sm font-semibold">
                   Email Address
-                </label>
+                </Label>
                 <Input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  {...register('email', { required: true })}
                   placeholder="you@example.com"
                   className="h-10"
                   disabled={isLoading}
@@ -150,13 +165,12 @@ function LoginContent() {
               </div>
 
               <div>
-                <label htmlFor="password" className="mb-2 block text-sm font-semibold">
+                <Label htmlFor="password" className="mb-2 block text-sm font-semibold">
                   Password
-                </label>
+                </Label>
                 <PasswordInput
                   id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  {...register('password', { required: true })}
                   placeholder="Password"
                   className="h-10"
                   disabled={isLoading}
@@ -168,23 +182,22 @@ function LoginContent() {
                   'Signing in...'
                 ) : (
                   <>
-                    <span>Sign In</span>
-                    <ArrowRight />
+                    Sign In <ArrowRight className="size-4" />
                   </>
                 )}
               </Button>
             </form>
 
-            <p className="mt-7 text-center text-sm text-muted-foreground">
-              New to MentorTrack?{' '}
-              <Link href="/auth/register" className="font-semibold text-primary hover:underline">
-                Create an account
+            <div className="mt-6 text-center text-sm text-muted-foreground">
+              Don&apos;t have an account?{' '}
+              <Link
+                href="/auth/register"
+                className="font-bold text-foreground hover:text-primary transition-colors"
+              >
+                Sign up
               </Link>
-            </p>
+            </div>
           </div>
-          <p className="mt-12 text-center text-xs text-muted-foreground">
-            © 2026 MentorTrack. Secure student operations.
-          </p>
         </div>
       </div>
     </div>
@@ -193,7 +206,13 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense>
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-muted-foreground text-sm">Loading...</div>
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

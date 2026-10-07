@@ -43,8 +43,20 @@ export class ApiClient {
       const responseData = (await response.json()) as Record<string, unknown>;
 
       if (!response.ok) {
+        const baseMsg =
+          (responseData.message as string) || (responseData.error as string) || 'An error occurred';
+        let detailedMsg = baseMsg;
+        if (Array.isArray(responseData.errors) && responseData.errors.length > 0) {
+          const details = responseData.errors
+            .map((err: any) => err.message || (typeof err === 'string' ? err : ''))
+            .filter(Boolean)
+            .join(', ');
+          if (details) {
+            detailedMsg = `${baseMsg}: ${details}`;
+          }
+        }
         return {
-          error: (responseData.message as string) || 'An error occurred',
+          error: detailedMsg,
           statusCode: response.status,
         };
       }
@@ -196,10 +208,15 @@ export const callLogApi = {
 };
 
 export const followUpApi = {
-  getAll: () =>
-    apiClient.get('/api/follow-ups', {
-      cacheTags: [CACHE_TAGS.FOLLOW_UPS],
-    }),
+  getAll: (studentId?: string) =>
+    apiClient.get(
+      studentId
+        ? `/api/follow-ups?studentId=${encodeURIComponent(studentId)}&limit=100`
+        : '/api/follow-ups',
+      {
+        cacheTags: [CACHE_TAGS.FOLLOW_UPS],
+      }
+    ),
 
   getById: (id: string) =>
     apiClient.get(`/api/follow-ups/${id}`, {
@@ -258,6 +275,13 @@ export const dashboardApi = {
         cacheTags: [CACHE_TAGS.SUBMISSION_DATA, CACHE_TAGS.DASHBOARD_STATS],
       }
     ),
+
+  getCallStats: (range: 'day' | 'week' | 'month' = 'week', cohort?: string) => {
+    const cohortQuery = cohort && cohort !== 'all' ? `&cohort=${encodeURIComponent(cohort)}` : '';
+    return apiClient.get(`/api/dashboard/call-stats?range=${range}${cohortQuery}`, {
+      cacheTags: [CACHE_TAGS.CALL_STATISTICS],
+    });
+  },
 };
 
 export const reportsApi = {

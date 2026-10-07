@@ -69,11 +69,13 @@ export function CallRoundsReport({ data }: CallRoundsReportProps) {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'var(--popover)',
-                  border: '1px solid var(--border)',
+                  backgroundColor: 'var(--card)',
+                  borderColor: 'var(--border)',
                   borderRadius: '12px',
-                  color: 'var(--popover-foreground)',
+                  color: 'var(--foreground)',
                 }}
+                itemStyle={{ color: 'var(--foreground)', fontWeight: 500 }}
+                labelStyle={{ color: 'var(--foreground)', fontWeight: 700 }}
               />
               <Bar
                 dataKey="studentsReached"

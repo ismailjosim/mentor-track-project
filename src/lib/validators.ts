@@ -91,7 +91,10 @@ export const AssignmentBulkSubmitSchema = BulkAssignmentSubmitSchema;
 // ==================== CALLLOG SCHEMAS ====================
 
 export const CallLogCreateSchema = z.object({
-  date: z.coerce.date().refine((date) => date <= new Date(), 'Date cannot be in the future'),
+  date: z.coerce
+    .date()
+    .default(() => new Date())
+    .refine((date) => date.getTime() <= Date.now() + 5 * 60 * 1000, 'Date cannot be in the future'),
   status: z.enum([
     'RECEIVED',
     'NOT_RECEIVED',

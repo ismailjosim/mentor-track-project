@@ -36,7 +36,7 @@ export function AssignmentCompletionStats({ students }: AssignmentCompletionStat
   return (
     <div className="surface overflow-hidden">
       <div className="border-b border-border/70 px-6 py-5">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
           Assignment Completion Stats
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">

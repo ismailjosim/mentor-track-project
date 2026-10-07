@@ -47,7 +47,9 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
     {
       title: 'Completed',
       value: stats.completedStudents,
-      desc: 'Finished all assignments',
+      desc: stats.currentAssignment
+        ? `Finished up to ${stats.currentAssignment}`
+        : 'Finished all assignments',
       icon: TrendingUp,
       color: 'text-primary',
       bg: 'bg-primary/10 border-primary/15',

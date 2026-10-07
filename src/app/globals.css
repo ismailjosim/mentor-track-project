@@ -178,10 +178,10 @@
 
 @layer components {
   .container {
-    @apply mx-auto w-full max-w-360 px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full px-4 sm:px-6 lg:px-8;
   }
   .app-main {
-    @apply mx-auto w-full max-w-360 flex-1 px-4 py-7 sm:px-6 sm:py-9 lg:px-8;
+    @apply w-full flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8;
   }
   .page-header {
     @apply flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between;

@@ -6,3 +6,4 @@ export * from './FailingStudentsTable';
 export * from './CallQueue';
 export * from './SubmissionDistribution';
 export * from './AssignmentCompletionStats';
+export * from './CallStatisticsChart';

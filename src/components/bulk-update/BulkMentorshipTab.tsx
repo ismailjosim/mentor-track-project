@@ -1,10 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseEmails, type BulkResult } from './types';
 import { BulkResultSummary } from './BulkResultSummary';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 
 interface BulkMentorshipTabProps {
   onSuccess: (matchedCount: number, statusText: string) => void;
@@ -12,102 +15,101 @@ interface BulkMentorshipTabProps {
 }
 
 export function BulkMentorshipTab({ onSuccess, onError }: BulkMentorshipTabProps) {
+  const queryClient = useQueryClient();
   const [mentorshipStatus, setMentorshipStatus] = useState<boolean>(true);
   const [mentorshipEmails, setMentorshipEmails] = useState('');
-  const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<BulkResult | null>(null);
 
-  const handleProcessMentorship = async () => {
-    try {
-      setProcessing(true);
-      onError(null);
-
-      const emails = parseEmails(mentorshipEmails);
-
-      if (emails.length === 0) {
-        onError('Please enter at least one email');
-        return;
-      }
-
+  // TanStack Query Mutation for matching emails
+  const matchMutation = useMutation({
+    mutationFn: async (emails: string[]) => {
       const response = await fetch('/api/students/bulk-match', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ emails }),
       });
-
       const resJson = await response.json();
-
       if (!response.ok) {
-        onError(resJson.message || 'Failed to match emails');
-        return;
+        throw new Error(resJson.message || 'Failed to match emails');
       }
-
-      const { data } = resJson;
-
+      return resJson.data;
+    },
+    onSuccess: (data) => {
       setResult({
         matched: data.stats.matched,
         unmatched: data.stats.unmatched,
         unmatchedEmails: data.unmatched,
         matchedStudents: data.matched,
       });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to process emails';
-      onError(message);
-      toast.error(message);
-    } finally {
-      setProcessing(false);
-    }
-  };
+    },
+    onError: (err: Error) => {
+      onError(err.message);
+      toast.error(err.message);
+    },
+  });
 
-  const handleCommitMentorship = async () => {
-    try {
-      setProcessing(true);
-      const emails =
-        result?.matchedStudents && result.matchedStudents.length > 0
-          ? result.matchedStudents.map((s) => s.email)
-          : parseEmails(mentorshipEmails);
-
+  // TanStack Query Mutation for committing mentorship update
+  const commitMutation = useMutation({
+    mutationFn: async ({ emails, status }: { emails: string[]; status: boolean }) => {
       const response = await fetch('/api/students/bulk-update-mentorship', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emails, mentorshipJoiningStatus: mentorshipStatus }),
+        body: JSON.stringify({ emails, mentorshipJoiningStatus: status }),
       });
-
       const apiResult = await response.json();
-
       if (!response.ok) {
-        onError(apiResult.message || 'Failed to update mentorship status');
-        toast.error(apiResult.message || 'Failed to update mentorship status');
-        return;
+        throw new Error(apiResult.message || 'Failed to update mentorship status');
       }
-
+      return apiResult;
+    },
+    onSuccess: () => {
       const matchedCount = result?.matched ?? 0;
       const statusText = mentorshipStatus ? 'Active' : 'Inactive';
       toast.success(
         `Successfully updated ${matchedCount} students to mentorship status: ${statusText}`
       );
-
       setResult(null);
       setMentorshipEmails('');
       onSuccess(matchedCount, statusText);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to commit update';
-      onError(message);
-      toast.error(message);
-    } finally {
-      setProcessing(false);
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
+    },
+    onError: (err: Error) => {
+      onError(err.message);
+      toast.error(err.message);
+    },
+  });
+
+  const handleProcessMentorship = () => {
+    onError(null);
+    const emails = parseEmails(mentorshipEmails);
+    if (emails.length === 0) {
+      onError('Please enter at least one email');
+      return;
     }
+    matchMutation.mutate(emails);
   };
+
+  const handleCommitMentorship = () => {
+    const emails =
+      result?.matchedStudents && result.matchedStudents.length > 0
+        ? result.matchedStudents.map((s) => s.email)
+        : parseEmails(mentorshipEmails);
+
+    commitMutation.mutate({ emails, status: mentorshipStatus });
+  };
+
+  const processing = matchMutation.isPending || commitMutation.isPending;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-semibold">Mentorship Status</label>
+        <Label className="text-sm font-semibold">Mentorship Status</Label>
         <select
           value={mentorshipStatus ? 'active' : 'inactive'}
           onChange={(e) => setMentorshipStatus(e.target.value === 'active')}
           disabled={processing}
-          className="border rounded-md px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 w-full md:w-64 disabled:opacity-50"
+          className="border border-border rounded-lg px-3 py-2 text-sm bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/30 w-full md:w-64 disabled:opacity-50"
         >
           <option value="active">Active (Joined Group)</option>
           <option value="inactive">Inactive (Not in Group)</option>
@@ -116,7 +118,7 @@ export function BulkMentorshipTab({ onSuccess, onError }: BulkMentorshipTabProps
 
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between">
-          <label className="text-sm font-semibold">Email List</label>
+          <Label className="text-sm font-semibold">Email List</Label>
           <span className="text-xs text-muted-foreground">
             {parseEmails(mentorshipEmails).length} email(s) entered
           </span>
@@ -130,7 +132,7 @@ export function BulkMentorshipTab({ onSuccess, onError }: BulkMentorshipTabProps
           disabled={processing}
           placeholder={'student1@example.com\nstudent2@example.com\nstudent3@example.com'}
           rows={8}
-          className="border rounded-md px-3 py-2 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
+          className="border border-border rounded-lg px-3 py-2 text-sm font-mono bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
         />
       </div>
 
@@ -145,14 +147,14 @@ export function BulkMentorshipTab({ onSuccess, onError }: BulkMentorshipTabProps
 
       {!result && (
         <div className="flex justify-end">
-          <button
+          <Button
             onClick={handleProcessMentorship}
             disabled={parseEmails(mentorshipEmails).length === 0 || processing}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="gap-2"
           >
             <Heart className="w-4 h-4" />
             {processing ? 'Processing...' : 'Process'}
-          </button>
+          </Button>
         </div>
       )}
     </div>

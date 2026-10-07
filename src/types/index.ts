@@ -55,6 +55,7 @@ export interface DashboardStats {
   totalCallLogs: number;
   totalFollowUps: number;
   pendingFollowUps: number;
+  currentAssignment?: string;
 }
 
 // ==================== EXTENDED INTERFACES ====================

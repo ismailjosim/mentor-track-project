@@ -38,9 +38,10 @@ const CallLogSchema = new Schema<CallLogDocumentWithMongoose>(
     date: {
       type: Date,
       required: [true, 'Call date is required'],
+      default: Date.now,
       validate: {
         validator: (value: Date) => {
-          return value <= new Date();
+          return value.getTime() <= Date.now() + 5 * 60 * 1000;
         },
         message: 'Date cannot be in the future',
       },

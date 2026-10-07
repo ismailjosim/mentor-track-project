@@ -109,6 +109,19 @@ export async function GET(request: NextRequest) {
         lastCompletedAssignment: student.lastCompletedAssignment,
       }));
 
+    const completedStudentsCount = students.filter((student: any) => {
+      if (student.currentStatus === 'Dropped') return false;
+      if (student.currentStatus === 'Completed') return true;
+      if (!currentAssignmentNumber || currentAssignmentNumber < 1) return false;
+      for (let i = 1; i <= currentAssignmentNumber; i++) {
+        const a = student.assignments?.find((item: any) => item.assignmentNumber === i);
+        if (!a || !isSubmitted(a.status)) {
+          return false;
+        }
+      }
+      return true;
+    }).length;
+
     const stats = {
       totalStudents: students.length,
       activeStudents: students.filter(
@@ -117,8 +130,9 @@ export async function GET(request: NextRequest) {
       onTrackStudents: students.filter((student: any) => student.currentStatus === 'On Track')
         .length,
       atRiskStudents: failingStudents.length,
-      completedStudents: students.filter((student: any) => student.currentStatus === 'Completed')
-        .length,
+      completedStudents: completedStudentsCount,
+      currentAssignment:
+        settings?.currentAssignment || `A-${String(currentAssignmentNumber).padStart(2, '0')}`,
       totalAssignments,
       pendingAssignments: totalAssignments - completedAssignments,
       completedAssignments,

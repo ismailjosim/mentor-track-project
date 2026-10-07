@@ -8,6 +8,8 @@ import type { StudentStatus } from '@/models/Student';
 import { studentApi } from '@/lib/api-client';
 import toast from 'react-hot-toast';
 import { StudentAssignment } from '@/interfaces/assignment.interface';
+import { TrackingAssignmentGrid } from './TrackingAssignmentGrid';
+import { TrackingStatsOverview } from './TrackingStatsOverview';
 
 interface TrackingSectionProps {
   student: StudentWithRelations;
@@ -59,13 +61,14 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
   const [currentAssignmentNumber, setCurrentAssignmentNumber] = useState(1);
 
   useEffect(() => {
+    let isCancelled = false;
     const fetchCurrentAssignment = async () => {
       try {
         const response = await fetch('/api/settings');
         const data = await response.json();
         const currentAssignment = data?.data?.currentAssignment;
 
-        if (data?.success && currentAssignment) {
+        if (data?.success && currentAssignment && !isCancelled) {
           const assignmentNumber = parseInt(currentAssignment.split('-')[1], 10);
 
           if (!Number.isNaN(assignmentNumber)) {
@@ -73,11 +76,16 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
           }
         }
       } catch (error) {
-        console.error('Failed to fetch current assignment:', error);
+        if (!isCancelled) {
+          console.error('Failed to fetch current assignment:', error);
+        }
       }
     };
 
     fetchCurrentAssignment();
+    return () => {
+      isCancelled = true;
+    };
   }, []);
 
   // Calculate auto-detected status
@@ -140,6 +148,30 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
 
   const totalAssignments = currentAssignmentNumber;
 
+  // Submitted assignments calculation (COMPLETED or SUBMITTED)
+  const submittedAssignments = useMemo(
+    () => assignments.filter((a) => a.status === 'COMPLETED' || a.status === 'SUBMITTED'),
+    [assignments]
+  );
+  const totalSubmittedAssignments = submittedAssignments.length;
+
+  // Total marks scored across submitted assignments
+  const totalMarks = useMemo(() => {
+    return assignments.reduce((sum, a) => {
+      const val = typeof a.marks === 'number' && !Number.isNaN(a.marks) ? a.marks : 0;
+      return sum + val;
+    }, 0);
+  }, [assignments]);
+
+  // Average marks based on submitted assignment count (e.g. 360 / 6 = 60)
+  const avgMarks = totalSubmittedAssignments > 0 ? totalMarks / totalSubmittedAssignments : 0;
+  const avgMarksFormatted =
+    totalSubmittedAssignments > 0
+      ? Number.isInteger(avgMarks)
+        ? String(avgMarks)
+        : avgMarks.toFixed(1)
+      : '0';
+
   return (
     <div className="bg-background border rounded-xl shadow-sm overflow-hidden">
       {/* Header */}
@@ -168,29 +200,14 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
         </div>
 
         {/* Progress Overview */}
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Progress Overview
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <div className="p-4 bg-muted/30 rounded-lg border">
-              <p className="text-xs text-muted-foreground mb-1">Assignments Submitted</p>
-              <p className="text-2xl font-bold">
-                {completedCount}/{totalAssignments}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {Math.round((completedCount / totalAssignments) * 100)}%
-              </p>
-            </div>
-            <div className="p-4 bg-muted/30 rounded-lg border">
-              <p className="text-xs text-muted-foreground mb-1">Current Assignment</p>
-              <p className="text-2xl font-bold">
-                A-{String(currentAssignmentNumber).padStart(2, '0')}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">Target to complete</p>
-            </div>
-          </div>
-        </div>
+        <TrackingStatsOverview
+          completedCount={completedCount}
+          totalAssignments={totalAssignments}
+          currentAssignmentNumber={currentAssignmentNumber}
+          totalMarks={totalMarks}
+          totalSubmittedAssignments={totalSubmittedAssignments}
+          avgMarksFormatted={avgMarksFormatted}
+        />
 
         {/* Auto-Detection Info */}
         <div className="p-4 status-info rounded-lg border">
@@ -264,73 +281,10 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
         </div>
 
         {/* Assignment Status Summary */}
-        <div className="space-y-3 border-t pt-6">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            Assignment Status
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
-            {Array.from({ length: 10 }, (_, i) => {
-              const assignmentNum = i + 1;
-              const assignment = assignments.find((a) => a.assignmentNumber === assignmentNum);
-              const isCompleted = assignment?.status === 'COMPLETED';
-              const isSubmitted = assignment?.status === 'SUBMITTED';
-              const isCurrent = assignmentNum === currentAssignmentNumber;
-
-              const statusClass = isCompleted
-                ? 'status-success font-semibold shadow-xs'
-                : isSubmitted
-                  ? 'status-info font-semibold shadow-xs'
-                  : isCurrent
-                    ? 'status-warning font-semibold'
-                    : 'status-neutral';
-
-              const statusTitle = isCompleted
-                ? 'Completed (Graded / Has Marks)'
-                : isSubmitted
-                  ? 'Submitted (No Marks Yet)'
-                  : isCurrent
-                    ? 'Current Assignment'
-                    : 'Not Started';
-
-              return (
-                <div
-                  key={assignmentNum}
-                  className={`flex flex-col items-center justify-center min-h-14 rounded-lg border px-2 py-2 text-xs transition-all ${statusClass}`}
-                  title={statusTitle}
-                >
-                  <span className="font-bold">A-{String(assignmentNum).padStart(2, '0')}</span>
-                  <span className="text-[10px] font-medium opacity-90 mt-0.5">
-                    {isCompleted
-                      ? 'Completed'
-                      : isSubmitted
-                        ? 'Submitted'
-                        : isCurrent
-                          ? 'Current'
-                          : 'Pending'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground pt-1">
-            <span className="inline-flex items-center">
-              <span className="inline-block w-3.5 h-3.5 bg-success-soft border border-success-border rounded mr-2" />
-              Completed
-            </span>
-            <span className="inline-flex items-center">
-              <span className="inline-block w-3.5 h-3.5 bg-info-soft border border-info-border rounded mr-2" />
-              Submitted (No Marks)
-            </span>
-            <span className="inline-flex items-center">
-              <span className="inline-block w-3.5 h-3.5 bg-warning-soft border border-warning-border rounded mr-2" />
-              Current
-            </span>
-            <span className="inline-flex items-center">
-              <span className="inline-block w-3.5 h-3.5 bg-neutral-soft border border-neutral-border rounded mr-2" />
-              Not Started
-            </span>
-          </div>
-        </div>
+        <TrackingAssignmentGrid
+          assignments={assignments}
+          currentAssignmentNumber={currentAssignmentNumber}
+        />
       </div>
     </div>
   );

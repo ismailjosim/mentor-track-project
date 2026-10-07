@@ -82,11 +82,13 @@ export function AssignmentSubmissionReport({ data }: AssignmentSubmissionReportP
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: 'var(--popover)',
-                border: '1px solid var(--border)',
+                backgroundColor: 'var(--card)',
+                borderColor: 'var(--border)',
                 borderRadius: '12px',
-                color: 'var(--popover-foreground)',
+                color: 'var(--foreground)',
               }}
+              itemStyle={{ color: 'var(--foreground)', fontWeight: 500 }}
+              labelStyle={{ color: 'var(--foreground)', fontWeight: 700 }}
             />
             <Bar dataKey="submitted" radius={[8, 8, 0, 0]} name="Submitted">
               {chartData.map((_, index) => (
@@ -97,7 +99,7 @@ export function AssignmentSubmissionReport({ data }: AssignmentSubmissionReportP
         </ResponsiveContainer>
 
         <div className="mt-6 overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-130 text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border/70">
                 <th className="py-2 pr-4">Assignment</th>

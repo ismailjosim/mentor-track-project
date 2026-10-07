@@ -144,10 +144,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(createResponse(404, 'Student not found'), { status: 404 });
     }
 
+    const validAssignmentContexts = [
+      'A-01',
+      'A-02',
+      'A-03',
+      'A-04',
+      'A-05',
+      'A-06',
+      'A-07',
+      'A-08',
+      'A-09',
+      'A-10',
+      'None',
+    ];
+    const assignmentContext = validAssignmentContexts.includes(student.lastCompletedAssignment)
+      ? student.lastCompletedAssignment
+      : 'None';
+
     const callLog = new CallLog({
       ...validatedData,
       ownerId: userId,
-      assignmentContext: student.lastCompletedAssignment || 'None',
+      assignmentContext,
     });
     const saved = await callLog.save();
     await saved.populate('studentId');

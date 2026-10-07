@@ -44,7 +44,12 @@ const SingleStudentDetails = ({ student }: SingleStudentDetailsProps) => {
           student={student}
         />
 
-        <StudentActivityPanel callLogs={callLogs} followUps={followUps} studentId={studentId} />
+        <StudentActivityPanel
+          callLogs={callLogs}
+          followUps={followUps}
+          studentId={studentId}
+          onUpdate={refreshStudent}
+        />
       </div>
     </div>
   );

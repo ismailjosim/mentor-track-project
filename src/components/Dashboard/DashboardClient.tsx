@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardStats } from './DashboardStats';
 import { FailingStudentsTable } from './FailingStudentsTable';
 import { CallQueue } from './CallQueue';
@@ -9,11 +10,13 @@ import { SubmissionDistribution } from './SubmissionDistribution';
 import { AssignmentCompletionStats } from './AssignmentCompletionStats';
 import { DashboardSkeleton } from './DashboardSkeleton';
 import { DashboardHeader } from './DashboardHeader';
+import { CallStatisticsChart } from './CallStatisticsChart';
 import { dashboardApi } from '@/lib/api-client';
 import { AlertCircle } from 'lucide-react';
 import type { DashboardStats as DashboardStatsType, StudentWithRelations } from '@/types';
 import toast from 'react-hot-toast';
 import { useBatch } from '@/components/providers/BatchProvider';
+import { Button } from '@/components/ui/button';
 
 export interface DashboardOverview {
   stats: DashboardStatsType;
@@ -30,213 +33,104 @@ interface DashboardClientProps {
   initialData?: DashboardOverview;
 }
 
-const dashboardMemoryCache: Record<string, DashboardOverview> = {};
-
 export function DashboardClient({ initialData }: DashboardClientProps = {}) {
+  const queryClient = useQueryClient();
   const { selectedBatch, setSelectedBatch } = useBatch();
-
   const selectedCohort = selectedBatch;
-  const [availableCohorts, setAvailableCohorts] = useState<string[]>(['13', '14']);
-  const [stats, setStats] = useState<DashboardStatsType | null>(initialData?.stats || null);
-  const [allStudents, setAllStudents] = useState<StudentWithRelations[]>(
-    initialData?.students || []
-  );
-  const [failingStudents, setFailingStudents] = useState<StudentWithRelations[]>(
-    initialData?.failingStudents || []
-  );
-  const [callQueueStudents, setCallQueueStudents] = useState<StudentWithRelations[]>(
-    initialData?.callQueue || []
-  );
-  const [loading, setLoading] = useState<boolean>(
-    !initialData && !dashboardMemoryCache[selectedCohort]
-  );
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
   const [statusFilter, setStatusFilter] = useState('all');
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(initialData ? new Date() : null);
-
-  // Pagination states
   const [failingPage, setFailingPage] = useState(1);
-  const [failingTotalPages, setFailingTotalPages] = useState(
-    initialData?.failingPagination.pages || 1
-  );
-  const [failingTotalCount, setFailingTotalCount] = useState(
-    initialData?.failingPagination.total || 0
-  );
-  const [failingLoading, setFailingLoading] = useState(false);
-
   const [callQueuePage, setCallQueuePage] = useState(1);
-  const [callQueueTotalPages, setCallQueueTotalPages] = useState(
-    initialData?.callQueuePagination.pages || 1
-  );
-  const [callQueueTotalCount, setCallQueueTotalCount] = useState(
-    initialData?.callQueuePagination.total || 0
-  );
-  const [callQueueLoading, setCallQueueLoading] = useState(false);
 
-  const applyOverview = useCallback((data: DashboardOverview) => {
-    setStats(data.stats);
-    setAllStudents(data.students);
-    setFailingStudents(data.failingStudents);
-    setFailingTotalPages(data.failingPagination.pages);
-    setFailingTotalCount(data.failingPagination.total);
-    setCallQueueStudents(data.callQueue);
-    setCallQueueTotalPages(data.callQueuePagination.pages);
-    setCallQueueTotalCount(data.callQueuePagination.total);
-    if (data.availableCohorts && data.availableCohorts.length > 0) {
-      setAvailableCohorts(data.availableCohorts);
-    }
-  }, []);
+  // TanStack Query for dashboard overview
+  const {
+    data: overview,
+    isLoading: isOverviewLoading,
+    isRefetching: isRefreshing,
+    error: overviewError,
+    refetch,
+    dataUpdatedAt,
+  } = useQuery<DashboardOverview>({
+    queryKey: ['dashboard-overview', selectedCohort],
+    queryFn: async () => {
+      const res = await dashboardApi.getOverview(selectedCohort);
+      if (res.error) throw new Error(res.error);
+      return res.data as DashboardOverview;
+    },
+    initialData:
+      initialData && (!initialData.cohort || initialData.cohort === selectedCohort)
+        ? initialData
+        : undefined,
+    staleTime: 60 * 1000,
+  });
 
-  const fetchOverviewData = useCallback(async (cohort: string) => {
-    const overviewResponse = await dashboardApi.getOverview(cohort);
+  // Query for paginated failing students beyond page 1
+  const { data: paginatedFailing, isLoading: isFailingLoading } = useQuery({
+    queryKey: ['dashboard-failing', selectedCohort, failingPage],
+    queryFn: async () => {
+      const res = await dashboardApi.getFailingStudents(failingPage, 10, selectedCohort);
+      if (res.error) throw new Error(res.error);
+      return (res.data as any) || {};
+    },
+    enabled: failingPage > 1,
+    staleTime: 60 * 1000,
+  });
 
-    if (overviewResponse.error) {
-      throw new Error(overviewResponse.error);
-    }
+  // Query for paginated call queue beyond page 1
+  const { data: paginatedCallQueue, isLoading: isCallQueueLoading } = useQuery({
+    queryKey: ['dashboard-call-queue', selectedCohort, callQueuePage],
+    queryFn: async () => {
+      const res = await dashboardApi.getCallQueue(callQueuePage, 10, selectedCohort);
+      if (res.error) throw new Error(res.error);
+      return (res.data as any) || {};
+    },
+    enabled: callQueuePage > 1,
+    staleTime: 60 * 1000,
+  });
 
-    if (overviewResponse.data) {
-      const data = overviewResponse.data as DashboardOverview;
-      dashboardMemoryCache[cohort] = data;
-      return data;
-    }
-    return null;
-  }, []);
+  const availableCohorts = overview?.availableCohorts || ['13', '14'];
+  const stats = overview?.stats || null;
+  const allStudents = overview?.students || [];
 
-  useEffect(() => {
-    let isMounted = true;
+  const failingStudents: StudentWithRelations[] =
+    failingPage === 1 ? overview?.failingStudents || [] : paginatedFailing?.data || [];
 
-    fetchOverviewData(selectedBatch)
-      .then((data) => {
-        if (isMounted && data) {
-          applyOverview(data);
-          setFailingPage(1);
-          setCallQueuePage(1);
-          setLastUpdated(new Date());
-        }
-      })
-      .catch((err) => {
-        if (isMounted) {
-          const msg = err instanceof Error ? err.message : 'Failed to switch cohort';
-          setError(msg);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
+  const failingTotalPages =
+    failingPage === 1 ? overview?.failingPagination?.pages || 1 : paginatedFailing?.totalPages || 1;
 
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedBatch, fetchOverviewData, applyOverview]);
+  const failingTotalCount =
+    failingPage === 1 ? overview?.failingPagination?.total || 0 : paginatedFailing?.total || 0;
+
+  const callQueueStudents: StudentWithRelations[] =
+    callQueuePage === 1 ? overview?.callQueue || [] : paginatedCallQueue?.data || [];
+
+  const callQueueTotalPages =
+    callQueuePage === 1
+      ? overview?.callQueuePagination?.pages || 1
+      : paginatedCallQueue?.pagination?.pages || 1;
+
+  const callQueueTotalCount =
+    callQueuePage === 1
+      ? overview?.callQueuePagination?.total || 0
+      : paginatedCallQueue?.pagination?.total || 0;
 
   const handleCohortChange = (newCohort: string) => {
-    if (dashboardMemoryCache[newCohort]) {
-      applyOverview(dashboardMemoryCache[newCohort]);
-    } else {
-      setLoading(true);
-    }
     setFailingPage(1);
     setCallQueuePage(1);
     setSelectedBatch(newCohort);
   };
 
-  const handleFailingPageChange = async (newPage: number) => {
-    setFailingPage(newPage);
-    try {
-      setFailingLoading(true);
-      const failingResponse = await dashboardApi.getFailingStudents(newPage, 10, selectedCohort);
-
-      if (failingResponse.error) {
-        throw new Error(failingResponse.error);
-      }
-
-      if (
-        failingResponse.data &&
-        typeof failingResponse.data === 'object' &&
-        'data' in failingResponse.data
-      ) {
-        setFailingStudents((failingResponse.data as any).data || []);
-        setFailingTotalPages((failingResponse.data as any).totalPages || 1);
-        setFailingTotalCount((failingResponse.data as any).total || 0);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to fetch failing students');
-    } finally {
-      setFailingLoading(false);
-    }
-  };
-
-  const handleCallQueuePageChange = async (newPage: number) => {
-    setCallQueuePage(newPage);
-    try {
-      setCallQueueLoading(true);
-      const callQueueResponse = await dashboardApi.getCallQueue(newPage, 10, selectedCohort);
-
-      if (callQueueResponse.error) {
-        throw new Error(callQueueResponse.error);
-      }
-
-      if (
-        callQueueResponse.data &&
-        typeof callQueueResponse.data === 'object' &&
-        'data' in callQueueResponse.data
-      ) {
-        setCallQueueStudents((callQueueResponse.data as any).data || []);
-        setCallQueueTotalPages((callQueueResponse.data as any).pagination?.pages || 1);
-        setCallQueueTotalCount((callQueueResponse.data as any).pagination?.total || 0);
-      }
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to fetch call queue');
-    } finally {
-      setCallQueueLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (initialData) return;
-
-    const loadOverview = async () => {
-      if (dashboardMemoryCache[selectedCohort]) {
-        applyOverview(dashboardMemoryCache[selectedCohort]);
-        setLoading(false);
-      }
-
-      try {
-        setError(null);
-        if (!dashboardMemoryCache[selectedCohort]) setLoading(true);
-        await fetchOverviewData(selectedCohort);
-        setLastUpdated(new Date());
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to fetch dashboard data';
-        setError(message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadOverview();
-  }, [applyOverview, fetchOverviewData, initialData, selectedCohort]);
-
-  const filteredFailingStudents =
-    statusFilter === 'all'
-      ? failingStudents
-      : failingStudents.filter((s) => s.currentStatus === statusFilter);
-
   const handleRefresh = async () => {
-    setRefreshing(true);
     try {
       setFailingPage(1);
       setCallQueuePage(1);
-      await fetchOverviewData(selectedCohort);
-      setLastUpdated(new Date());
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['dashboard-overview', selectedCohort] }),
+        refetch(),
+      ]);
       toast.success('Dashboard refreshed');
     } catch {
       toast.error('Failed to refresh dashboard');
-    } finally {
-      setRefreshing(false);
     }
   };
 
@@ -262,15 +156,23 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
     }
   };
 
-  if (loading) {
+  if (isOverviewLoading && !overview) {
     return <DashboardSkeleton />;
   }
+
+  const filteredFailingStudents =
+    statusFilter === 'all'
+      ? failingStudents
+      : failingStudents.filter((s) => s.currentStatus === statusFilter);
+
+  const errorMessage = overviewError instanceof Error ? overviewError.message : null;
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <DashboardHeader
         lastUpdated={lastUpdated}
-        refreshing={refreshing}
+        refreshing={isRefreshing}
         selectedCohort={selectedCohort}
         availableCohorts={availableCohorts}
         onCohortChange={handleCohortChange}
@@ -278,23 +180,22 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
         onExportCallList={handleExportCallList}
       />
 
-      {error && (
-        <div className="flex items-center gap-3 rounded-xl border border-danger-border bg-danger-soft p-4">
+      {errorMessage && (
+        <div className="flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4">
           <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-destructive">{error}</p>
+            <p className="text-sm font-medium text-destructive">{errorMessage}</p>
             <p className="text-xs text-destructive/80 mt-0.5">Showing cached data if available</p>
           </div>
-          <button
-            onClick={handleRefresh}
-            className="px-3 py-1 text-xs bg-destructive text-destructive-foreground rounded hover:bg-destructive/90"
-          >
+          <Button variant="destructive" size="sm" onClick={handleRefresh}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
 
       {stats && <DashboardStats stats={stats} />}
+
+      <CallStatisticsChart cohort={selectedCohort} />
 
       {allStudents.length > 0 && <AssignmentCompletionStats students={allStudents} />}
 
@@ -308,7 +209,7 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 border rounded-lg bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                className="px-3 py-1.5 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
               >
                 <option value="all">All At Risk</option>
                 <option value="At Risk">At Risk</option>
@@ -324,8 +225,8 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
               currentPage={failingPage}
               totalPages={failingTotalPages}
               totalCount={failingTotalCount}
-              onPageChange={handleFailingPageChange}
-              loading={failingLoading}
+              onPageChange={(page) => setFailingPage(page)}
+              loading={failingPage > 1 && isFailingLoading}
             />
           </div>
         </div>
@@ -337,8 +238,8 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
             currentPage={callQueuePage}
             totalPages={callQueueTotalPages}
             totalCount={callQueueTotalCount}
-            onPageChange={handleCallQueuePageChange}
-            loading={callQueueLoading}
+            onPageChange={(page) => setCallQueuePage(page)}
+            loading={callQueuePage > 1 && isCallQueueLoading}
           />
         </div>
       </div>

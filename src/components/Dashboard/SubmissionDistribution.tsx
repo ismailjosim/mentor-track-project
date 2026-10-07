@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import type { StudentWithRelations } from '@/types';
@@ -50,53 +49,60 @@ export function SubmissionDistribution({ students }: SubmissionDistributionProps
   return (
     <div className="surface overflow-hidden">
       <div className="px-6 py-4 border-b">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
           Assignment Submission Overview
         </h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {total} students total • Showing completion by assignment
+          <span className="font-semibold text-foreground">{total}</span> students total • Showing
+          completion by assignment
         </p>
       </div>
       <div className="p-6">
         <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData} margin={{ top: 20, right: 30, left: 50, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.1)" />
+          <BarChart data={chartData} margin={{ top: 10, right: 15, left: 10, bottom: 10 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.15)" />
             <XAxis
               dataKey="name"
-              stroke="var(--muted-foreground)"
-              tick={{ fill: 'var(--foreground)', fontSize: 13, fontWeight: 500 }}
+              stroke="var(--border)"
+              tick={{ fill: 'var(--foreground)', fontSize: 12, fontWeight: 600 }}
             />
             <YAxis
-              stroke="var(--muted-foreground)"
+              stroke="var(--border)"
               tick={{ fill: 'var(--foreground)', fontSize: 12 }}
               label={{
                 value: 'Students',
                 angle: -90,
                 position: 'insideLeft',
-                style: { fill: 'var(--foreground)' },
+                style: { fill: 'var(--foreground)', fontWeight: 600, fontSize: 12 },
               }}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: 'var(--popover)',
-                border: '1px solid var(--border)',
-                borderRadius: '12px',
-                color: 'var(--popover-foreground)',
-                zIndex: 1000,
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              content={({ active, payload, label }) => {
+                if (active && payload && payload.length) {
+                  const studentCount = payload[0].value;
+                  const pct = payload[0].payload?.percentage ?? 0;
+                  return (
+                    <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xl backdrop-blur-md">
+                      <p className="text-xs font-bold text-foreground">{label}</p>
+                      <p className="mt-1 text-xs font-medium text-foreground">
+                        Completed:{' '}
+                        <span className="font-bold text-primary">
+                          {studentCount} {studentCount === 1 ? 'student' : 'students'} ({pct}%)
+                        </span>
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
               }}
-              formatter={
-                ((value: number | string, name: string) => {
-                  if (name === 'students') {
-                    return [`${value} students`, 'Completed'];
-                  }
-                  return [value, name];
-                }) as any
-              }
-              labelStyle={{ color: 'var(--foreground)' }}
-              cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+              cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
             />
-            <Legend wrapperStyle={{ paddingTop: '20px' }} />
+            <Legend
+              wrapperStyle={{ paddingTop: '16px' }}
+              formatter={(value) => (
+                <span className="text-xs font-medium text-foreground">{value}</span>
+              )}
+            />
             <Bar dataKey="students" radius={[8, 8, 0, 0]} name="Completed">
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

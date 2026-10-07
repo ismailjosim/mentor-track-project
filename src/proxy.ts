@@ -4,17 +4,30 @@ import { getSessionCookie } from 'better-auth/cookies';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Public routes
-const publicRoutes = ['/auth/login', '/auth/register', '/auth/error', '/health'];
+const publicRoutes = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/error',
+  '/health',
+  '/login',
+  '/register',
+];
+
+const authRoutes = ['/auth/login', '/auth/register', '/login', '/register'];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const sessionCookie = getSessionCookie(request);
 
-  // Allow public routes
+  // If already logged in and visiting login or register, redirect to dashboard
+  if (sessionCookie && authRoutes.includes(pathname)) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // Allow public routes for non-logged-in users
   if (publicRoutes.includes(pathname)) {
     return NextResponse.next();
   }
-
-  const sessionCookie = getSessionCookie(request);
 
   if (!sessionCookie) {
     const loginUrl = new URL('/auth/login', request.url);

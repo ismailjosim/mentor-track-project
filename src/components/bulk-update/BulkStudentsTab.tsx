@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { UserPlus } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 
 interface BulkStudentsTabProps {
   onSuccess: (count: number) => void;
@@ -51,7 +53,7 @@ export function BulkStudentsTab({ onSuccess, onError }: BulkStudentsTabProps) {
 
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between">
-          <label className="text-sm font-semibold">Student Records</label>
+          <Label className="text-sm font-semibold">Student Records</Label>
           <span className="text-xs text-muted-foreground font-mono italic">CSV Format</span>
         </div>
         <textarea
@@ -61,7 +63,7 @@ export function BulkStudentsTab({ onSuccess, onError }: BulkStudentsTabProps) {
             'John Doe, john@example.com, +880 1712 000111, Dhaka, On Track\nJane Smith, jane@example.com, +880 1812 000222, Chittagong, Behind'
           }
           rows={8}
-          className="border rounded-md px-3 py-2 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+          className="border border-border rounded-lg px-3 py-2 text-sm font-mono bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/30 resize-none"
         />
         <p className="text-xs text-muted-foreground">
           {lineCount} record{lineCount !== 1 ? 's' : ''} entered
@@ -69,14 +71,14 @@ export function BulkStudentsTab({ onSuccess, onError }: BulkStudentsTabProps) {
       </div>
 
       <div className="flex justify-end">
-        <button
+        <Button
           onClick={handleProcessStudents}
           disabled={!studentData.trim() || processing}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="gap-2"
         >
           <UserPlus className="w-4 h-4" />
           {processing ? 'Processing...' : 'Process Student Upsert'}
-        </button>
+        </Button>
       </div>
     </div>
   );

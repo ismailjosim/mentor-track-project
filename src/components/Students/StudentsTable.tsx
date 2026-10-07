@@ -3,10 +3,10 @@
 import { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
-import { Trash2, X, CheckSquare } from 'lucide-react';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
 import { StudentsTableFilters } from './StudentsTableFilters';
 import { StudentsTablePagination } from './StudentsTablePagination';
+import { StudentsTableBulkBar } from './StudentsTableBulkBar';
 import { DeleteStudentModal } from './DeleteStudentModal';
 import { BulkDeleteModal } from './BulkDeleteModal';
 import { StudentsTableRow } from './StudentsTableRow';
@@ -326,35 +326,14 @@ export function StudentsTable({
       />
 
       {/* ── Bulk action toolbar ── */}
-      {selectedIds.size > 0 && (
-        <div className="flex items-center justify-between gap-4 px-6 py-3 bg-primary/5 border-b border-primary/20">
-          <div className="flex items-center gap-3">
-            <CheckSquare className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold text-primary">
-              {selectedIds.size} student{selectedIds.size > 1 ? 's' : ''} selected
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleClearSelection}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-xs font-medium text-muted-foreground hover:text-foreground"
-            >
-              <X className="w-3.5 h-3.5" />
-              Clear selection
-            </button>
-            <button
-              onClick={() => setBulkDeleteModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground hover:opacity-90 transition-all text-xs font-semibold"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              Delete {selectedIds.size} student{selectedIds.size > 1 ? 's' : ''}
-            </button>
-          </div>
-        </div>
-      )}
+      <StudentsTableBulkBar
+        selectedCount={selectedIds.size}
+        onClearSelection={handleClearSelection}
+        onOpenBulkDelete={() => setBulkDeleteModal(true)}
+      />
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-190 text-sm">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-b bg-muted/10">

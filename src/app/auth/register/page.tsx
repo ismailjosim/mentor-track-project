@@ -1,37 +1,53 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import toast from 'react-hot-toast';
+import { ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { GoogleAuthButton } from '@/components/auth/GoogleAuthButton';
 import { PasswordInput } from '@/components/auth/PasswordInput';
 import { BrandLogo } from '@/components/BrandLogo';
 import { authClient } from '@/lib/auth-client';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import toast from 'react-hot-toast';
-import { ArrowRight, Sparkles } from 'lucide-react';
+
+interface RegisterFormData {
+  name: string;
+  email: string;
+  password: string;
+}
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { data: session } = authClient.useSession();
+
+  useEffect(() => {
+    if (session?.user) {
+      router.replace('/dashboard');
+    }
+  }, [session, router]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const { register, handleSubmit } = useForm<RegisterFormData>({
+    defaultValues: { name: '', email: '', password: '' },
+  });
+
+  const onRegister = async (data: RegisterFormData) => {
     setIsLoading(true);
     setError(null);
 
-    if (!name.trim() || !email.trim() || !password) {
+    if (!data.name.trim() || !data.email.trim() || !data.password) {
       setError('Please fill in all fields');
       setIsLoading(false);
       return;
     }
 
-    if (password.length < 8) {
+    if (data.password.length < 8) {
       setError('Password must be at least 8 characters');
       setIsLoading(false);
       return;
@@ -39,9 +55,9 @@ export default function RegisterPage() {
 
     await authClient.signUp.email(
       {
-        name: name.trim(),
-        email: email.trim().toLowerCase(),
-        password,
+        name: data.name.trim(),
+        email: data.email.trim().toLowerCase(),
+        password: data.password,
       },
       {
         onSuccess: () => {
@@ -90,30 +106,29 @@ export default function RegisterPage() {
               <span className="h-px flex-1 bg-border" />
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit(onRegister)} className="space-y-5">
               <div>
-                <label htmlFor="name" className="mb-2 block text-sm font-semibold">
-                  Name
-                </label>
+                <Label htmlFor="name" className="mb-2 block text-sm font-semibold">
+                  Full Name
+                </Label>
                 <Input
                   id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
+                  type="text"
+                  {...register('name', { required: true })}
+                  placeholder="Mentor Name"
                   className="h-10"
                   disabled={isLoading}
                 />
               </div>
 
               <div>
-                <label htmlFor="email" className="mb-2 block text-sm font-semibold">
+                <Label htmlFor="email" className="mb-2 block text-sm font-semibold">
                   Email Address
-                </label>
+                </Label>
                 <Input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  {...register('email', { required: true })}
                   placeholder="you@example.com"
                   className="h-10"
                   disabled={isLoading}
@@ -121,13 +136,12 @@ export default function RegisterPage() {
               </div>
 
               <div>
-                <label htmlFor="password" className="mb-2 block text-sm font-semibold">
+                <Label htmlFor="password" className="mb-2 block text-sm font-semibold">
                   Password
-                </label>
+                </Label>
                 <PasswordInput
                   id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  {...register('password', { required: true })}
                   placeholder="At least 8 characters"
                   className="h-10"
                   disabled={isLoading}
@@ -139,40 +153,48 @@ export default function RegisterPage() {
                   'Creating account...'
                 ) : (
                   <>
-                    <span>Create Account</span>
-                    <ArrowRight />
+                    Create Account <ArrowRight className="size-4" />
                   </>
                 )}
               </Button>
             </form>
 
-            <p className="mt-7 text-center text-sm text-muted-foreground">
+            <div className="mt-6 text-center text-sm text-muted-foreground">
               Already have an account?{' '}
-              <Link href="/auth/login" className="text-primary hover:underline">
+              <Link
+                href="/auth/login"
+                className="font-bold text-foreground hover:text-primary transition-colors"
+              >
                 Sign in
               </Link>
-            </p>
+            </div>
           </div>
         </div>
       </div>
+
       <div className="relative hidden overflow-hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
-        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_75%_20%,white_0,transparent_30%),radial-gradient(circle_at_15%_90%,white_0,transparent_25%)]" />
-        <Sparkles className="relative size-8" />
+        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_25%_20%,white_0,transparent_32%),radial-gradient(circle_at_80%_80%,white_0,transparent_24%)]" />
+        <div className="relative flex items-center justify-between">
+          <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold backdrop-blur-xs">
+            Cohort 14 Ready
+          </span>
+          <span className="flex items-center gap-2 text-xs font-medium text-primary-foreground/75">
+            <Sparkles className="size-4" /> Fast onboarding
+          </span>
+        </div>
         <div className="relative max-w-xl">
-          <p className="mb-4 text-sm font-bold uppercase tracking-[0.2em] text-primary-foreground/65">
-            Built for momentum
+          <p className="mb-4 text-sm font-bold uppercase tracking-wider text-primary-foreground/65">
+            Built for execution
           </p>
-          <h2 className="text-5xl font-bold leading-[1.08] tracking-[-0.05em]">
-            Turn student signals into timely support.
+          <h2 className="text-4xl font-bold leading-tight tracking-tight">
+            Track students, schedule calls, and keep the cohort moving forward together.
           </h2>
-          <p className="mt-6 text-lg leading-8 text-primary-foreground/75">
-            Keep every assignment, call, and follow-up visible without turning mentorship into admin
-            work.
+          <p className="mt-6 max-w-lg text-lg leading-8 text-primary-foreground/75">
+            Give mentors clarity on who needs help today, who missed yesterday, and who is ready for
+            the next milestone.
           </p>
         </div>
-        <p className="relative text-xs text-primary-foreground/55">
-          A clearer operating system for cohort care
-        </p>
+        <p className="relative text-xs text-primary-foreground/55">Antigravity Mentor Suite</p>
       </div>
     </div>
   );

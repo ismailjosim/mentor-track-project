@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { reportsApi } from '@/lib/api-client';
 import { exportToCSV, exportToExcel, downloadFile, generateExportFilename } from '@/lib/export';
 import { ReportOptionsPanel } from './ReportOptionsPanel';
@@ -19,8 +20,6 @@ export function ReportsClient() {
   const [selectedSections, setSelectedSections] = useState<string[]>(DEFAULT_SECTIONS);
   const [onlyMentorshipGroup, setOnlyMentorshipGroup] = useState(false);
   const [report, setReport] = useState<GeneratedReport | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const toggleSection = (key: string) => {
     setSelectedSections((prev) =>
@@ -28,22 +27,24 @@ export function ReportsClient() {
     );
   };
 
-  const handleGenerate = async () => {
-    if (selectedSections.length === 0) return;
-    setLoading(true);
-    setError(null);
-    try {
+  const generateMutation = useMutation({
+    mutationFn: async () => {
       const response = await reportsApi.generate(selectedSections, onlyMentorshipGroup);
       if (response.error) throw new Error(response.error);
-      setReport(response.data as GeneratedReport);
-      toast.success('Report generated');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to generate report';
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
+      return response.data as GeneratedReport;
+    },
+    onSuccess: (data) => {
+      setReport(data);
+      toast.success('Report generated successfully');
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || 'Failed to generate report');
+    },
+  });
+
+  const handleGenerate = () => {
+    if (selectedSections.length === 0) return;
+    generateMutation.mutate();
   };
 
   const buildExportRows = (): Record<string, unknown>[] => {
@@ -124,12 +125,15 @@ export function ReportsClient() {
     toast.success(`Report exported as ${format.toUpperCase()}`);
   };
 
+  const loading = generateMutation.isPending;
+  const error = generateMutation.error instanceof Error ? generateMutation.error.message : null;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <ReportsHeader hasReport={Boolean(report)} onExport={handleExport} />
 
       {error && (
-        <div className="flex items-center gap-3 rounded-xl border border-danger-border bg-danger-soft p-4">
+        <div className="flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4">
           <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
           <p className="text-sm font-medium text-destructive">{error}</p>
         </div>
