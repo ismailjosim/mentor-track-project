@@ -3,11 +3,11 @@ import { Info } from 'lucide-react';
 const steps = [
   {
     step: 1,
-    text: 'Upload an Excel (.xlsx) / CSV file or paste rows copied from Google Sheets. Supported columns: Name (optional), Email (required), marks (optional).',
+    text: 'Upload an Excel (.xlsx) / CSV file or paste rows copied from Google Sheets. Supported columns: Name (optional), Email (required), Obtained Marks, Total Marks (deadline tier 60/50/30), or Raw Marks.',
   },
   {
     step: 2,
-    text: 'Select target assignment (A-01 to A-10) and deadline tier (60, 50, or 30 marks).',
+    text: 'Select target assignment (A-01 to A-10) and default deadline tier (used as fallback if Total Marks is not in file).',
   },
   {
     step: 3,

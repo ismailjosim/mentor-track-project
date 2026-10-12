@@ -34,12 +34,25 @@ export function BulkResultSummary({
       ? result.matchedStudents.filter((s) => s.targetStatus === 'SUBMITTED').length
       : 0);
 
+  const hasPerStudentTiers = Boolean(
+    result.matchedStudents &&
+      result.matchedStudents.some((s) => s.totalMarks !== undefined && s.totalMarks !== null)
+  );
+
   return (
     <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
         <p className="text-sm font-semibold">Import Preview & Status Check</p>
         <span className="text-xs text-muted-foreground font-medium">
-          Deadline Tier: <strong>{tier} Marks</strong>
+          Deadline Tier:{' '}
+          <strong>
+            {hasPerStudentTiers ? 'Detected from Sheet' : `${tier} Marks`}
+          </strong>
+          {hasPerStudentTiers && (
+            <span className="text-muted-foreground/75 font-normal ml-1">
+              (default fallback: {tier})
+            </span>
+          )}
         </span>
       </div>
 
@@ -82,58 +95,71 @@ export function BulkResultSummary({
             )}
           </div>
           <div className="text-xs space-y-1.5 max-h-52 overflow-y-auto bg-background rounded-lg p-2.5 border divide-y divide-border/40">
-            {result.matchedStudents.map((s) => (
-              <div
-                key={s.studentId}
-                className="pt-1.5 first:pt-0 flex flex-wrap items-center justify-between gap-2"
-              >
-                <div className="min-w-0">
-                  <div className="font-semibold text-foreground flex items-center gap-1.5">
-                    <span>{s.name}</span>
-                    {s.sheetName && s.sheetName.toLowerCase() !== s.name.toLowerCase() && (
-                      <span className="text-[10px] text-muted-foreground font-normal">
-                        ({s.sheetName})
-                      </span>
-                    )}
-                  </div>
-                  <div className="font-mono text-[11px] text-muted-foreground truncate">
-                    {s.email}
-                  </div>
-                </div>
+            {result.matchedStudents.map((s) => {
+              const studentTier = s.totalMarks || tier;
+              const finalMarks =
+                s.marks !== undefined && s.marks !== null
+                  ? Math.min(studentTier, Math.max(0, s.marks))
+                  : undefined;
 
-                {hasAssignmentDetails && (
-                  <div className="flex items-center gap-2 shrink-0">
-                    {s.marks !== undefined && s.marks !== null ? (
+              return (
+                <div
+                  key={s.studentId}
+                  className="pt-1.5 first:pt-0 flex flex-wrap items-center justify-between gap-2"
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold text-foreground flex items-center gap-1.5">
+                      <span>{s.name}</span>
+                      {s.sheetName && s.sheetName.toLowerCase() !== s.name.toLowerCase() && (
+                        <span className="text-[10px] text-muted-foreground font-normal">
+                          ({s.sheetName})
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-mono text-[11px] text-muted-foreground truncate">
+                      {s.email}
+                    </div>
+                  </div>
+
+                  {hasAssignmentDetails && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      {s.marks !== undefined && s.marks !== null ? (
+                        <span
+                          className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium ${
+                            s.marks > 0
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950 dark:text-amber-300'
+                          }`}
+                          title={
+                            s.marks > studentTier
+                              ? `Mark ${s.marks} capped at deadline tier ${studentTier}`
+                              : undefined
+                          }
+                        >
+                          {s.marks > 0
+                            ? `${finalMarks} / ${studentTier}`
+                            : `${s.marks} / ${studentTier} (Pending)`}
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded text-[11px] font-mono text-muted-foreground bg-muted">
+                          No marks / {studentTier} (Pending)
+                        </span>
+                      )}
+
                       <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium ${
-                          s.marks > 0
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950 dark:text-amber-300'
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          s.targetStatus === 'COMPLETED'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300'
+                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
                         }`}
                       >
-                        {s.marks > 0
-                          ? `${Math.min(tier, s.marks)} / ${tier}`
-                          : `${s.marks} (Pending)`}
+                        {s.targetStatus === 'COMPLETED' ? 'Completed' : 'Submitted'}
                       </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded text-[11px] font-mono text-muted-foreground bg-muted">
-                        No marks (Pending)
-                      </span>
-                    )}
-
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        s.targetStatus === 'COMPLETED'
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/60 dark:text-green-300'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
-                      }`}
-                    >
-                      {s.targetStatus === 'COMPLETED' ? 'Completed' : 'Submitted'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

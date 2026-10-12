@@ -15,16 +15,29 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { emails, items } = body;
 
-    let normalizedItems: Array<{ email: string; marks?: number | null; name?: string }> = [];
+    let normalizedItems: Array<{
+      email: string;
+      marks?: number | null;
+      totalMarks?: 30 | 50 | 60 | null;
+      name?: string;
+    }> = [];
 
     if (Array.isArray(items) && items.length > 0) {
       normalizedItems = items
         .filter((it: any) => it && typeof it.email === 'string')
-        .map((it: any) => ({
-          email: it.email.trim().toLowerCase(),
-          marks: typeof it.marks === 'number' ? it.marks : undefined,
-          name: typeof it.name === 'string' ? it.name.trim() : undefined,
-        }));
+        .map((it: any) => {
+          const rawTotal = it.totalMarks ?? it.tier ?? it.maxMarks;
+          const parsedTotal =
+            rawTotal === 30 || rawTotal === 50 || rawTotal === 60
+              ? (rawTotal as 30 | 50 | 60)
+              : undefined;
+          return {
+            email: it.email.trim().toLowerCase(),
+            marks: typeof it.marks === 'number' ? it.marks : undefined,
+            totalMarks: parsedTotal,
+            name: typeof it.name === 'string' ? it.name.trim() : undefined,
+          };
+        });
     } else if (Array.isArray(emails) && emails.length > 0) {
       normalizedItems = emails
         .filter((e: any) => typeof e === 'string' && e.trim().length > 0)
@@ -39,7 +52,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(createResponse(400, 'No valid emails provided'), { status: 400 });
     }
 
-    const itemMap = new Map<string, { email: string; marks?: number | null; name?: string }>();
+    const itemMap = new Map<
+      string,
+      { email: string; marks?: number | null; totalMarks?: 30 | 50 | 60 | null; name?: string }
+    >();
     for (const item of normalizedItems) {
       itemMap.set(item.email, item);
     }
@@ -70,6 +86,7 @@ export async function POST(request: NextRequest) {
           cohort: student.cohort,
           sheetName: item?.name,
           marks: item?.marks,
+          totalMarks: item?.totalMarks,
           targetStatus: isCompleted ? 'COMPLETED' : 'SUBMITTED',
         });
       } else {

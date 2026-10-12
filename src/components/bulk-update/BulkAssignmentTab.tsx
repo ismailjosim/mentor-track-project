@@ -152,7 +152,12 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-semibold">Deadline / Marks Tier</label>
+          <label className="text-sm font-semibold flex items-center justify-between">
+            <span>Default Deadline Tier</span>
+            <span className="text-[11px] font-normal text-muted-foreground">
+              (Fallback if not in file)
+            </span>
+          </label>
           <select
             value={tier}
             onChange={(e) => {
@@ -189,7 +194,7 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
         <div className="flex justify-between items-center">
           <label className="text-sm font-semibold">Paste Data / Email List</label>
           <span className="text-xs text-muted-foreground">
-            {file ? 'File loaded above' : 'Auto-detects Name, Email, and Marks'}
+            {file ? 'File loaded above' : 'Auto-detects Name, Email, Obtained Marks, & Total Marks'}
           </span>
         </div>
         <textarea
@@ -202,7 +207,7 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
           placeholder={
             file
               ? 'File is selected above. Click "Process" to match students.'
-              : `Abdur Rahman\tabdurrahman436021@gmail.com\t57\nAlok talukder\taloktalukder1971@gmail.com\t60\nAmran Hossain\tamran879k@gmail.com\t0\nor just emails: student@example.com`
+              : `ayashaclassroom@gmail.com\t30\t30\naloktalukder1971@gmail.com\t0\t30\nbeyoushoke@gmail.com\t50\t60\nor with raw marks: student@example.com\t30/30\nor paste rows directly from Excel / Google Sheets`
           }
           rows={6}
           className="border rounded-md px-3 py-2 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"

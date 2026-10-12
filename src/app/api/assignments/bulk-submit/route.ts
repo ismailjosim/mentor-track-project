@@ -28,16 +28,29 @@ export async function POST(request: NextRequest) {
     const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
 
     // Normalize incoming items
-    let targetItems: Array<{ email: string; marks?: number | null; name?: string }> = [];
+    let targetItems: Array<{
+      email: string;
+      marks?: number | null;
+      totalMarks?: 30 | 50 | 60 | null;
+      name?: string;
+    }> = [];
 
     if (Array.isArray(items) && items.length > 0) {
       targetItems = items
         .filter((it) => it && typeof it.email === 'string')
-        .map((it) => ({
-          email: it.email.toLowerCase().trim(),
-          marks: typeof it.marks === 'number' ? it.marks : undefined,
-          name: it.name?.trim(),
-        }));
+        .map((it) => {
+          const rawTotal = it.totalMarks ?? it.tier ?? it.maxMarks;
+          const parsedTotal =
+            rawTotal === 30 || rawTotal === 50 || rawTotal === 60
+              ? (rawTotal as 30 | 50 | 60)
+              : undefined;
+          return {
+            email: it.email.toLowerCase().trim(),
+            marks: typeof it.marks === 'number' ? it.marks : undefined,
+            totalMarks: parsedTotal,
+            name: it.name?.trim(),
+          };
+        });
     } else if (Array.isArray(emails) && emails.length > 0) {
       targetItems = emails
         .filter((e) => typeof e === 'string' && e.trim().length > 0)
@@ -46,7 +59,10 @@ export async function POST(request: NextRequest) {
         }));
     }
 
-    const itemMap = new Map<string, { email: string; marks?: number | null; name?: string }>();
+    const itemMap = new Map<
+      string,
+      { email: string; marks?: number | null; totalMarks?: 30 | 50 | 60 | null; name?: string }
+    >();
     for (const it of targetItems) {
       itemMap.set(it.email, it);
     }
@@ -84,12 +100,15 @@ export async function POST(request: NextRequest) {
 
       matchedEmails.add(email);
 
+      // Determine student-specific deadline tier: item's totalMarks or fallback to batch tier
+      const studentTier: 30 | 50 | 60 = item?.totalMarks || tier;
+
       // Determine marks & status based on business rules:
-      // If marks > 0: status is COMPLETED with assigned marks (capped at tier maxMarks)
+      // If marks > 0: status is COMPLETED with assigned marks (capped at studentTier maxMarks)
       // If marks <= 0 (e.g. 0, -2, -4) or not provided: status is SUBMITTED (pending marks)
       const hasPositiveMarks = item?.marks !== undefined && item?.marks !== null && item.marks > 0;
       const status = hasPositiveMarks ? 'COMPLETED' : 'SUBMITTED';
-      const marks = hasPositiveMarks ? Math.min(tier, Math.max(0, item.marks!)) : undefined;
+      const marks = hasPositiveMarks ? Math.min(studentTier, Math.max(0, item.marks!)) : undefined;
 
       if (status === 'COMPLETED') {
         completedCount++;
@@ -102,6 +121,7 @@ export async function POST(request: NextRequest) {
         name: student.name,
         id: student._id.toString(),
         marks,
+        maxMarks: studentTier,
         status,
       });
 
@@ -118,7 +138,7 @@ export async function POST(request: NextRequest) {
       const assignmentData: any = {
         assignmentNumber,
         status,
-        maxMarks: tier,
+        maxMarks: studentTier,
         date: submissionDate,
       };
 

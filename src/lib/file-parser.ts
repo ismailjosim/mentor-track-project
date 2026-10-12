@@ -37,11 +37,29 @@ const StudentDataSchema = z.object({
 export type StudentImportData = z.infer<typeof StudentDataSchema>;
 
 /**
+ * Helper to normalize and parse deadline tier (30, 50, or 60 marks)
+ */
+export function parseDeadlineTier(val: any): 30 | 50 | 60 | undefined {
+  if (val === undefined || val === null || val === '') return undefined;
+  const str = String(val).trim();
+  const match = str.match(/\d+/);
+  if (match) {
+    const num = parseInt(match[0], 10);
+    if (num === 30 || num === 50 || num === 60) return num;
+    if (num >= 55) return 60;
+    if (num >= 40) return 50;
+    if (num > 0) return 30;
+  }
+  return undefined;
+}
+
+/**
  * Assignment import validation schema
  */
 const AssignmentDataSchema = z.object({
   email: z.string().email('Invalid email format'),
   marks: z.number().optional().nullable(),
+  totalMarks: z.union([z.literal(30), z.literal(50), z.literal(60)]).optional().nullable(),
   name: z.string().optional(),
 });
 
@@ -122,14 +140,26 @@ const FIELD_ALIASES: Record<string, string[]> = {
   name: ['name', 'studentname', 'fullname', 'student', 'nam'],
   email: ['email', 'emailaddress', 'mail', 'emailid', 'studentemail'],
   marks: [
+    'obtainedmarks',
     'marks',
     'mark',
     'score',
     'assignmentmarks',
     'assignmentscore',
     'receivedmarks',
-    'obtainedmarks',
   ],
+  totalMarks: [
+    'totalmarks',
+    'totalmark',
+    'maxmarks',
+    'maxmark',
+    'deadline',
+    'deadlinemarks',
+    'deadlinetier',
+    'tier',
+    'total',
+  ],
+  rawMarks: ['rawmarks', 'rawmark', 'rawscore', 'submissionmarks'],
   phone: ['phone', 'phonenumber', 'phoneno', 'mobile', 'mobileno', 'contact', 'cell', 'cellphone'],
   whatsapp: ['whatsapp', 'wa', 'wanumber', 'whatsappnumber', 'whatsappno'],
   cohort: ['cohort', 'batch', 'batchno', 'cohortbatch', 'batchnumber', 'batchname'],
@@ -431,7 +461,9 @@ export function validateAssignmentData(row: any): {
 
     let rawEmail = getMatchedValue('email');
     let rawMarks = getMatchedValue('marks');
+    let rawTotalMarks = getMatchedValue('totalMarks');
     const rawName = getMatchedValue('name');
+    const rawRawMarks = getMatchedValue('rawMarks');
 
     // If email wasn't matched via key aliases, scan values for an email
     if (!rawEmail) {
@@ -446,11 +478,38 @@ export function validateAssignmentData(row: any): {
       }
     }
 
-    // If marks wasn't matched via key aliases, scan remaining numeric values
+    // If rawMarks is present (like "30/30", "50/60", "0/30", "30/60")
+    if (rawRawMarks !== undefined && rawRawMarks !== null && rawRawMarks !== '') {
+      const match = String(rawRawMarks)
+        .trim()
+        .match(/^(\d+(?:\.\d+)?)\s*[/]\s*(\d+(?:\.\d+)?)$/);
+      if (match) {
+        if (rawMarks === undefined || rawMarks === null || rawMarks === '') {
+          rawMarks = Number(match[1]);
+        }
+        if (rawTotalMarks === undefined || rawTotalMarks === null || rawTotalMarks === '') {
+          rawTotalMarks = Number(match[2]);
+        }
+      }
+    }
+
+    // If marks wasn't matched via key aliases, scan remaining numeric values (avoiding sl, name, email, totalMarks, etc.)
     if (rawMarks === undefined) {
       for (const [key, val] of Object.entries(row)) {
         const normKey = normalizeFieldName(key);
-        if (normKey === 'email' || normKey === 'name') continue;
+        if (
+          normKey === 'email' ||
+          normKey === 'name' ||
+          normKey === 'sl' ||
+          normKey === 'serial' ||
+          normKey === 'totalmarks' ||
+          normKey === 'total' ||
+          normKey === 'maxmarks' ||
+          normKey === 'tier' ||
+          normKey === 'rawmarks'
+        ) {
+          continue;
+        }
         if (val !== undefined && val !== null && val !== '') {
           const str = String(val).trim();
           if (/^-?\d+(\.\d+)?$/.test(str)) {
@@ -474,9 +533,12 @@ export function validateAssignmentData(row: any): {
       }
     }
 
+    const parsedTotalMarks = parseDeadlineTier(rawTotalMarks);
+
     const normalizedData: AssignmentImportData = {
       email,
       marks: parsedMarks,
+      totalMarks: parsedTotalMarks,
       name: rawName ? String(rawName).trim() : undefined,
     };
 
