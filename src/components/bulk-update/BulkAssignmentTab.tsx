@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { Zap, CheckCircle2, FileSpreadsheet } from 'lucide-react';
+import { useState } from 'react';
+import { Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { processAssignmentImportFile } from '@/lib/file-parser';
 import {
@@ -13,6 +13,7 @@ import {
   type AssignmentImportRow,
 } from './types';
 import { BulkResultSummary } from './BulkResultSummary';
+import { BulkFileUploadZone } from './BulkFileUploadZone';
 
 interface BulkAssignmentTabProps {
   onSuccess: (matchedCount: number, assignmentLabel: string) => void;
@@ -24,48 +25,9 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
   const [tier, setTier] = useState<DeadlineTier>(60);
   const [emailsText, setEmailsText] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [dragActive, setDragActive] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<BulkResult | null>(null);
   const [currentItems, setCurrentItems] = useState<AssignmentImportRow[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    const files = e.dataTransfer.files;
-    if (files?.length > 0) {
-      handleFileSelect(files[0]);
-    }
-  };
-
-  const handleFileSelect = (selectedFile: File) => {
-    if (!selectedFile.name.match(/\.(csv|xlsx|xls)$/i)) {
-      toast.error('File must be CSV or Excel (.xlsx/.xls) format');
-      return;
-    }
-
-    if (selectedFile.size > 5 * 1024 * 1024) {
-      toast.error('File size must be under 5MB');
-      return;
-    }
-
-    setFile(selectedFile);
-    setEmailsText('');
-    setResult(null);
-  };
 
   const handleProcessAssignment = async () => {
     try {
@@ -75,25 +37,16 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
       let items: AssignmentImportRow[] = [];
 
       if (file) {
-        const fileData = await processAssignmentImportFile(file);
-        items = fileData.items;
-
-        if (fileData.invalidRows.length > 0) {
-          toast(`${fileData.invalidRows.length} rows skipped (invalid or missing email)`, {
-            icon: 'ℹ️',
-          });
+        const fileResult = await processAssignmentImportFile(file);
+        items = fileResult.items;
+        if (items.length === 0) {
+          throw new Error('No valid student email rows found in the uploaded file');
         }
       } else {
         items = parseAssignmentInput(emailsText);
         if (items.length === 0) {
-          onError('Please enter at least one email or paste spreadsheet data');
-          return;
+          throw new Error('No valid student email rows detected in the input');
         }
-      }
-
-      if (items.length === 0) {
-        onError('No valid entries found with an email address');
-        return;
       }
 
       setCurrentItems(items);
@@ -219,74 +172,18 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
       </div>
 
       {/* File Upload Zone */}
-      <div
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-          dragActive
-            ? 'border-primary bg-primary/5'
-            : 'border-muted-foreground/20 hover:border-primary/50'
-        } ${file ? 'bg-green-50/50 border-green-300 dark:bg-green-950/20' : ''}`}
-      >
-        {file ? (
-          <div className="flex items-center gap-3 justify-center">
-            <CheckCircle2 className="w-6 h-6 text-green-600" />
-            <div className="text-left">
-              <p className="text-sm font-medium text-green-700 dark:text-green-300">{file.name}</p>
-              <p className="text-xs text-green-600/80">
-                Excel/CSV file ready to match by Email and update Marks
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="w-10 h-10 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center">
-              <FileSpreadsheet className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-sm font-medium">
-                Drag Excel (.xlsx) or CSV file here, or click to browse
-              </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Columns supported: <strong>Name</strong> (optional), <strong>Email</strong>{' '}
-                (required), <strong>marks</strong> (optional)
-              </p>
-            </div>
-          </div>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,.xlsx,.xls"
-          onChange={(e) => {
-            if (e.target.files?.[0]) {
-              handleFileSelect(e.target.files[0]);
-            }
-          }}
-          className="hidden"
-        />
-      </div>
-
-      <div className="flex justify-between items-center">
-        <span className="text-xs text-muted-foreground">
-          Or paste rows directly from Google Sheets / Excel below:
-        </span>
-        {file && (
-          <button
-            onClick={() => {
-              setFile(null);
-              setResult(null);
-              setCurrentItems([]);
-            }}
-            className="text-xs text-muted-foreground hover:text-foreground underline"
-          >
-            Clear file
-          </button>
-        )}
-      </div>
+      <BulkFileUploadZone
+        file={file}
+        onFileSelect={(f) => {
+          setFile(f);
+          setResult(null);
+        }}
+        onClearFile={() => {
+          setFile(null);
+          setResult(null);
+          setCurrentItems([]);
+        }}
+      />
 
       <div className="flex flex-col gap-1.5">
         <div className="flex justify-between items-center">

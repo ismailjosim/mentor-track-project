@@ -46,42 +46,45 @@ export function DashboardHeader({
         )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-        {/* Cohort Selector */}
-        <div className="flex items-center gap-2 rounded-xl border bg-card px-3 h-10 shadow-sm transition-colors hover:border-primary/40 flex-1 sm:flex-initial">
-          <Layers className="w-4 h-4 text-primary shrink-0" />
-          <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">
-            Cohort:
-          </span>
-          <select
-            value={selectedCohort}
-            onChange={(e) => onCohortChange(e.target.value)}
-            className="bg-transparent text-sm font-bold text-foreground focus:outline-none cursor-pointer py-1 w-full sm:w-auto"
+      <div className="flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto shrink-0">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {/* Cohort Selector */}
+          <div className="flex items-center gap-2 rounded-xl border bg-card px-3 h-9 sm:h-10 shadow-sm transition-colors hover:border-primary/40 flex-1 sm:flex-initial">
+            <Layers className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">
+              Cohort:
+            </span>
+            <select
+              value={selectedCohort}
+              onChange={(e) => onCohortChange(e.target.value)}
+              className="bg-transparent text-xs sm:text-sm font-bold text-foreground focus:outline-none cursor-pointer py-1 w-full sm:w-auto"
+            >
+              <option value="13">Batch 13</option>
+              <option value="14">Batch 14 (New)</option>
+              <option value="all">All Batches</option>
+              {availableCohorts
+                .filter((c) => c !== '13' && c !== '14')
+                .map((c) => (
+                  <option key={c} value={c}>
+                    Batch {c}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <button
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-xl border bg-card px-3 sm:px-4 text-xs sm:text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50 flex-1 sm:flex-initial"
           >
-            <option value="13">Batch 13</option>
-            <option value="14">Batch 14 (New)</option>
-            <option value="all">All Batches</option>
-            {availableCohorts
-              .filter((c) => c !== '13' && c !== '14')
-              .map((c) => (
-                <option key={c} value={c}>
-                  Batch {c}
-                </option>
-              ))}
-          </select>
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
         </div>
 
         <button
-          onClick={onRefresh}
-          disabled={refreshing}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-4 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50 flex-1 sm:flex-initial"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          <span>Refresh</span>
-        </button>
-        <button
           onClick={onExportCallList}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-colors hover:bg-hover w-full sm:w-auto"
+          className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs sm:text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-colors hover:bg-primary/90 w-full"
         >
           <Download className="w-4 h-4" />
           <span>Export Call List</span>

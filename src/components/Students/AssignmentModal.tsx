@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Trash2, Plus, Minus } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import type { Assignment, AssignmentMaxMarks } from '@/interfaces/assignment.interface';
 import { cn } from '@/lib/cn';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/Modal';
 import { assignmentApi } from '@/lib/api-client';
 import toast from 'react-hot-toast';
+import { AssignmentTierSelector } from './AssignmentTierSelector';
+import { AssignmentMarksInput } from './AssignmentMarksInput';
 
 interface AssignmentModalProps {
   isOpen: boolean;
@@ -63,7 +65,6 @@ export function AssignmentModal({
 
   const handleTierChange = (tier: AssignmentMaxMarks) => {
     setNewMaxMarks(tier);
-    // User requirement: default field value to selected tier (e.g. 60 or 30)
     setNewMarks(String(tier));
   };
 
@@ -80,12 +81,6 @@ export function AssignmentModal({
     const next = Math.min(newMaxMarks, Math.max(0, current + delta));
     setNewMarks(String(next));
   };
-
-  const liveMarksNum = newMarks.trim() !== '' ? Number(newMarks) : null;
-  const liveMarksPct =
-    liveMarksNum !== null && !Number.isNaN(liveMarksNum) && liveMarksNum >= 0
-      ? Math.min(100, Math.round((liveMarksNum / newMaxMarks) * 100))
-      : null;
 
   const handleStatusChange = async () => {
     if (!selectedAssignment) return;
@@ -187,31 +182,8 @@ export function AssignmentModal({
             </span>
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Submission Tier (Max Marks)
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              {([60, 50, 30] as AssignmentMaxMarks[]).map((tier) => (
-                <button
-                  key={tier}
-                  type="button"
-                  onClick={() => handleTierChange(tier)}
-                  className={cn(
-                    'py-2 px-3 rounded-md border text-sm font-semibold transition-colors text-center',
-                    newMaxMarks === tier
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background border-border hover:bg-muted'
-                  )}
-                >
-                  {tier} marks
-                  <span className="block text-xs font-normal opacity-70">
-                    {tier === 60 ? '1st deadline' : tier === 50 ? '2nd deadline' : 'No deadline'}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Submission Tier Selector */}
+          <AssignmentTierSelector currentTier={newMaxMarks} onTierChange={handleTierChange} />
 
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">Update Status</label>
@@ -236,87 +208,13 @@ export function AssignmentModal({
 
           {/* Marks input conditionally visible ONLY when COMPLETED */}
           {newStatus === 'COMPLETED' && (
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium text-foreground">
-                  Assignment Marks (0–{newMaxMarks})
-                </label>
-                <span className="text-xs text-muted-foreground">Defaulted to {newMaxMarks}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => adjustMarks(-1)}
-                  disabled={isLoading || (liveMarksNum !== null && liveMarksNum <= 0)}
-                  className="h-10 w-10 shrink-0 rounded-md border border-border flex items-center justify-center hover:bg-muted font-bold transition-colors disabled:opacity-40"
-                  title="Minus 1 mark"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <input
-                  type="number"
-                  min={0}
-                  max={newMaxMarks}
-                  value={newMarks}
-                  onChange={(e) => setNewMarks(e.target.value)}
-                  placeholder="Enter marks"
-                  disabled={isLoading}
-                  className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50 text-sm text-center font-bold"
-                />
-                <button
-                  type="button"
-                  onClick={() => adjustMarks(1)}
-                  disabled={isLoading || (liveMarksNum !== null && liveMarksNum >= newMaxMarks)}
-                  className="h-10 w-10 shrink-0 rounded-md border border-border flex items-center justify-center hover:bg-muted font-bold transition-colors disabled:opacity-40"
-                  title="Plus 1 mark"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-end gap-1.5 mt-2">
-                <span className="text-[11px] text-muted-foreground mr-1">Quick adjust:</span>
-                {[-5, -1, 1, 5].map((d) => (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => adjustMarks(d)}
-                    disabled={isLoading}
-                    className="text-xs px-2.5 py-1 rounded border border-border bg-muted/40 hover:bg-muted text-foreground font-medium transition-colors"
-                  >
-                    {d > 0 ? `+${d}` : d}
-                  </button>
-                ))}
-              </div>
-
-              {liveMarksPct !== null && (
-                <div className="mt-2">
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>Score preview</span>
-                    <span className="font-semibold">
-                      {liveMarksPct}% of {newMaxMarks}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={cn(
-                        'h-full rounded-full transition-all',
-                        liveMarksPct >= 70
-                          ? 'bg-success'
-                          : liveMarksPct >= 50
-                            ? 'bg-primary'
-                            : 'bg-destructive'
-                      )}
-                      style={{ width: `${liveMarksPct}%` }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <p className="text-xs text-success font-medium mt-1.5">
-                Status is Completed (graded). Card will appear in green.
-              </p>
-            </div>
+            <AssignmentMarksInput
+              newMarks={newMarks}
+              newMaxMarks={newMaxMarks}
+              isLoading={isLoading}
+              onMarksChange={setNewMarks}
+              onAdjustMarks={adjustMarks}
+            />
           )}
 
           {selectedAssignment?.date && (
@@ -330,45 +228,40 @@ export function AssignmentModal({
         </div>
       </ModalBody>
       <ModalFooter>
-        <button
-          onClick={onClose}
-          disabled={isLoading}
-          className="px-3 py-2 text-sm font-medium rounded-md border border-border hover:bg-muted transition-colors disabled:opacity-50"
-        >
-          Cancel
-        </button>
-
-        {isExisting && (
-          <button
-            onClick={handleRemove}
-            disabled={isLoading}
-            className="px-3 py-2 text-sm font-medium rounded-md bg-destructive text-destructive-foreground hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2"
-          >
-            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-            <Trash2 className="w-4 h-4" />
-            Remove
-          </button>
-        )}
-
-        <button
-          onClick={handleStatusChange}
-          disabled={
-            isLoading ||
-            (selectedAssignment
-              ? newStatus === selectedAssignment.status &&
-                newMaxMarks === (selectedAssignment.maxMarks ?? 60) &&
-                (newStatus === 'COMPLETED'
-                  ? newMarks.trim() === ''
-                    ? selectedAssignment.marks === undefined
-                    : Number(newMarks) === selectedAssignment.marks
-                  : true)
-              : false)
-          }
-          className="px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-        >
-          {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-          Update
-        </button>
+        <div className="flex items-center justify-between w-full">
+          <div>
+            {isExisting && (
+              <button
+                type="button"
+                onClick={handleRemove}
+                disabled={isLoading}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Remove Entry</span>
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isLoading}
+              className="px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted text-sm font-medium transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleStatusChange}
+              disabled={isLoading}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+              Save Changes
+            </button>
+          </div>
+        </div>
       </ModalFooter>
     </Modal>
   );

@@ -3,40 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Users,
-  RefreshCw,
-  FileBarChart,
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  X,
-  AlertTriangle,
-  Loader2,
-  ShieldCheck,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
 import { BrandLogo } from '@/components/BrandLogo';
-import { UserAvatar } from '@/components/Students/StudentAvatar';
 import { authClient } from '@/lib/auth-client';
-import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/Modal';
-
-const navLinks = [
-  { label: 'Dashboard', href: PAGE_ROUTES.DASHBOARD, icon: LayoutDashboard },
-  { label: 'Students', href: PAGE_ROUTES.STUDENTS, icon: Users },
-  { label: 'Bulk Update', href: PAGE_ROUTES.BULK_UPDATE, icon: RefreshCw },
-  { label: 'Reports', href: PAGE_ROUTES.REPORTS, icon: FileBarChart },
-];
-
-interface SidebarProps {
-  className?: string;
-  isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
-  mobileOpen?: boolean;
-  onCloseMobile?: () => void;
-}
+import type { SidebarProps } from './sidebar.types';
+import { SidebarNav } from './SidebarNav';
+import { SidebarUserProfile } from './SidebarUserProfile';
+import { SignoutModal } from './SignoutModal';
 
 export function Sidebar({
   className,
@@ -110,9 +85,7 @@ export function Sidebar({
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border/80 bg-card text-card-foreground transition-all duration-300 ease-in-out shadow-sm',
-          // Desktop widths
           isCollapsed ? 'lg:w-20' : 'lg:w-64',
-          // Mobile slide-out drawer
           mobileOpen ? 'translate-x-0 w-72' : '-translate-x-full lg:translate-x-0',
           className
         )}
@@ -151,196 +124,36 @@ export function Sidebar({
           </button>
         </div>
 
-        {/* Scrollable Navigation Area */}
-        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
-          <div className="space-y-1">
-            {(!isCollapsed || mobileOpen) && (
-              <p className="px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Navigation
-              </p>
-            )}
-            {navLinks.map(({ label, href, icon: Icon }) => {
-              const isActive = pathname === href || (href !== '/' && pathname.startsWith(href));
+        {/* Navigation Area */}
+        <SidebarNav
+          isCollapsed={isCollapsed}
+          mobileOpen={mobileOpen}
+          isAdmin={isAdmin}
+          isSuperAdmin={isSuperAdmin}
+        />
 
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={cn(
-                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group',
-                    isActive
-                      ? 'bg-primary text-primary-foreground font-semibold shadow-xs'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    isCollapsed && !mobileOpen && 'justify-center px-0'
-                  )}
-                  title={isCollapsed && !mobileOpen ? label : undefined}
-                >
-                  <Icon
-                    className={cn(
-                      'size-4 shrink-0 transition-transform group-hover:scale-105',
-                      isActive
-                        ? 'text-primary-foreground'
-                        : 'text-muted-foreground group-hover:text-foreground'
-                    )}
-                  />
-                  {(!isCollapsed || mobileOpen) && <span className="truncate">{label}</span>}
-                </Link>
-              );
-            })}
-
-            {/* Admin Only Section */}
-            {isAdmin && (
-              <div className="pt-3 border-t border-border/50">
-                {(!isCollapsed || mobileOpen) && (
-                  <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-1.5">
-                    <ShieldCheck className="size-3" />
-                    <span>System Administration</span>
-                  </p>
-                )}
-                <Link
-                  href={PAGE_ROUTES.ADMIN}
-                  className={cn(
-                    'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all group',
-                    pathname.startsWith(PAGE_ROUTES.ADMIN)
-                      ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 font-semibold border border-amber-500/30 shadow-xs'
-                      : 'text-muted-foreground hover:bg-amber-500/10 hover:text-amber-700 dark:hover:text-amber-300',
-                    isCollapsed && !mobileOpen && 'justify-center px-0'
-                  )}
-                  title={isCollapsed && !mobileOpen ? 'System Admin' : undefined}
-                >
-                  <ShieldCheck
-                    className={cn(
-                      'size-4 shrink-0 transition-transform group-hover:scale-105',
-                      pathname.startsWith(PAGE_ROUTES.ADMIN)
-                        ? 'text-amber-600 dark:text-amber-400'
-                        : 'text-amber-500'
-                    )}
-                  />
-                  {(!isCollapsed || mobileOpen) && (
-                    <span className="truncate flex-1 font-semibold">System Admin</span>
-                  )}
-                  {(!isCollapsed || mobileOpen) && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 uppercase">
-                      {isSuperAdmin ? 'Super' : 'Admin'}
-                    </span>
-                  )}
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Bottom Profile Section & Sign Out */}
+        {/* User Profile Footer */}
         {session?.user && (
-          <div className="border-t border-border/60 p-3 bg-muted/10 shrink-0">
-            {!isCollapsed || mobileOpen ? (
-              <div className="flex items-center gap-2.5 rounded-xl border border-border/80 bg-card p-2 shadow-2xs">
-                <UserAvatar name={session.user.name} size="sm" className="size-8 shrink-0" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-semibold leading-tight text-foreground truncate">
-                      {session.user.name}
-                    </p>
-                    {isAdmin && (
-                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 uppercase shrink-0">
-                        {isSuperAdmin ? 'Super Admin' : 'Admin'}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground truncate">{session.user.email}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsSignoutModalOpen(true)}
-                  className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors shrink-0"
-                  title="Sign out"
-                  aria-label="Sign out"
-                >
-                  <LogOut className="size-4" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <UserAvatar name={session.user.name} size="sm" className="size-8" />
-                <button
-                  type="button"
-                  onClick={() => setIsSignoutModalOpen(true)}
-                  className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                  title="Sign out"
-                  aria-label="Sign out"
-                >
-                  <LogOut className="size-4" />
-                </button>
-              </div>
-            )}
-          </div>
+          <SidebarUserProfile
+            user={session.user}
+            isCollapsed={isCollapsed}
+            mobileOpen={mobileOpen}
+            isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
+            onOpenSignoutModal={() => setIsSignoutModalOpen(true)}
+          />
         )}
       </aside>
 
       {/* Sign Out Confirmation Modal */}
-      <Modal
+      <SignoutModal
         isOpen={isSignoutModalOpen}
-        onClose={() => !isSigningOut && setIsSignoutModalOpen(false)}
-      >
-        <ModalHeader
-          title="Sign Out Confirmation"
-          onClose={() => !isSigningOut && setIsSignoutModalOpen(false)}
-        />
-        <ModalBody>
-          <div className="space-y-4 py-2">
-            <div className="flex items-start gap-3">
-              <div className="size-10 rounded-full bg-destructive/10 flex items-center justify-center shrink-0 mt-0.5">
-                <AlertTriangle className="size-5 text-destructive" />
-              </div>
-              <div className="space-y-1">
-                <h4 className="font-semibold text-sm text-foreground">
-                  Are you sure you want to sign out?
-                </h4>
-                <p className="text-xs text-muted-foreground">
-                  You are currently logged in as{' '}
-                  <span className="font-semibold text-foreground">
-                    {session?.user?.name || 'Mentor'}
-                  </span>{' '}
-                  ({session?.user?.email}).
-                </p>
-              </div>
-            </div>
-
-            <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
-              You will need to sign in again with your email and password to access the mentor
-              dashboard, student assignments, and follow-ups.
-            </div>
-          </div>
-        </ModalBody>
-        <ModalFooter>
-          <button
-            type="button"
-            onClick={() => setIsSignoutModalOpen(false)}
-            disabled={isSigningOut}
-            className="rounded-lg border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirmSignout}
-            disabled={isSigningOut}
-            className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50"
-          >
-            {isSigningOut ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                Signing out...
-              </>
-            ) : (
-              <>
-                <LogOut className="size-4" />
-                Sign Out
-              </>
-            )}
-          </button>
-        </ModalFooter>
-      </Modal>
+        isSigningOut={isSigningOut}
+        userName={session?.user?.name}
+        userEmail={session?.user?.email}
+        onClose={() => setIsSignoutModalOpen(false)}
+        onConfirm={handleConfirmSignout}
+      />
     </>
   );
 }

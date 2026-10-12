@@ -1,17 +1,16 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import toast from 'react-hot-toast';
-import { useQueryClient } from '@tanstack/react-query';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
 import { StudentsTableFilters } from './StudentsTableFilters';
 import { StudentsTablePagination } from './StudentsTablePagination';
 import { StudentsTableBulkBar } from './StudentsTableBulkBar';
 import { DeleteStudentModal } from './DeleteStudentModal';
 import { BulkDeleteModal } from './BulkDeleteModal';
-import { StudentsTableRow } from './StudentsTableRow';
-import { StudentsTableSkeleton } from './StudentsTableSkeleton';
-import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from '@tanstack/react-table';
+import { StudentsTableHeader } from './StudentsTableHeader';
+import { StudentsTableBody } from './StudentsTableBody';
+import { useStudentsTableSelection } from './useStudentsTableSelection';
+import { useReactTable, getCoreRowModel, type ColumnDef } from '@tanstack/react-table';
 import type { StudentWithRelations } from '@/types';
 import {
   type StudentsTableProps,
@@ -72,18 +71,6 @@ export function StudentsTable({
   const [localFilters, setLocalFilters] = useState<StudentTableFilters>(defaultLocalFilters);
   const [clientPage, setClientPage] = useState(1);
 
-  const [deleteModal, setDeleteModal] = useState<{
-    isOpen: boolean;
-    studentId?: string;
-    studentName?: string;
-  }>({ isOpen: false });
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // ── Bulk selection state ─────────────────────────────────────────────────────
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
-  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-
   const effectiveFilters: StudentTableFilters = useMemo(
     () => ({
       search: filters?.search ?? search ?? localFilters.search,
@@ -131,68 +118,111 @@ export function StudentsTable({
           !q ||
           s.name.toLowerCase().includes(q) ||
           s.email.toLowerCase().includes(q) ||
-          (s.phone ?? '').toLowerCase().includes(q) ||
-          (qDigits.length >= 2 &&
-            (sPhoneDigits.includes(qDigits) || sWhatsappDigits.includes(qDigits)));
+          (!!qDigits && (sPhoneDigits.includes(qDigits) || sWhatsappDigits.includes(qDigits)));
 
+        const matchCohort =
+          effectiveFilters.cohort === 'all' || s.cohort === effectiveFilters.cohort;
         const matchStatus =
           effectiveFilters.status === 'all' || s.currentStatus === effectiveFilters.status;
-        const matchProgress =
-          effectiveFilters.progress === 'all' ||
-          getLastAssignmentNumber(s.lastCompletedAssignment) === Number(effectiveFilters.progress);
+
+        const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
+        let matchProgress = true;
+        if (effectiveFilters.progress === '0') matchProgress = lastDone === 0;
+        else if (effectiveFilters.progress === '1-3')
+          matchProgress = lastDone >= 1 && lastDone <= 3;
+        else if (effectiveFilters.progress === '4-6')
+          matchProgress = lastDone >= 4 && lastDone <= 6;
+        else if (effectiveFilters.progress === '7-9')
+          matchProgress = lastDone >= 7 && lastDone <= 9;
+        else if (effectiveFilters.progress === '10') matchProgress = lastDone === 10;
+
         const matchGroup =
           effectiveFilters.group === 'all' ||
-          (effectiveFilters.group === 'in-group' && s.mentorshipJoiningStatus) ||
+          (effectiveFilters.group === 'in-group' && s.mentorshipJoiningStatus === true) ||
           (effectiveFilters.group === 'missing' && !s.mentorshipJoiningStatus);
         const matchDevice =
-          effectiveFilters.device === 'all' ||
-          (effectiveFilters.device === 'none' && !s.workingDevice) ||
-          s.workingDevice === effectiveFilters.device;
+          effectiveFilters.device === 'all' || s.workingDevice === effectiveFilters.device;
         const matchProgram =
-          effectiveFilters.programType === 'all' || s.programType === effectiveFilters.programType;
+          effectiveFilters.programType === 'all' ||
+          s.programType === effectiveFilters.programType;
 
         return (
-          matchSearch && matchStatus && matchProgress && matchGroup && matchDevice && matchProgram
+          matchSearch &&
+          matchCohort &&
+          matchStatus &&
+          matchProgress &&
+          matchGroup &&
+          matchDevice &&
+          matchProgram
         );
       })
-      .sort((a, b) =>
-        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' })
-      );
+      .sort((a, b) => {
+        const doneA = getLastAssignmentNumber(a.lastCompletedAssignment);
+        const doneB = getLastAssignmentNumber(b.lastCompletedAssignment);
+        return doneB - doneA;
+      });
   }, [students, effectiveFilters, isServerPaginated]);
 
   const clientTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const displayTotalPages = isServerPaginated ? totalPages : clientTotalPages;
+  const displayPage = isServerPaginated ? currentPage : clientPage;
+
   const paginated = useMemo(() => {
-    if (isServerPaginated) return students;
+    if (isServerPaginated) return filtered;
     const start = (clientPage - 1) * PAGE_SIZE;
     return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, clientPage, isServerPaginated, students]);
+  }, [filtered, clientPage, isServerPaginated]);
 
-  const displayPage = isServerPaginated ? currentPage : clientPage;
-  const displayTotalPages = isServerPaginated ? totalPages : clientTotalPages;
+  // Hook handles single deletion & bulk selection/deletion
+  const {
+    selectedIds,
+    allPageSelected,
+    somePageSelected,
+    handleSelectAll,
+    handleToggleSelect,
+    handleClearSelection,
+    bulkDeleteModal,
+    setBulkDeleteModal,
+    isBulkDeleting,
+    handleBulkDelete,
+    deleteModal,
+    setDeleteModal,
+    isDeleting,
+    handleDeleteClick,
+    handleConfirmDelete,
+  } = useStudentsTableSelection(paginated);
 
-  const handleFilterChange = (key: StudentFilterKey, val: string) => {
-    if (onFilterChange) {
-      onFilterChange(key, val);
-      return;
-    }
-    if (key === 'search' && onSearchChange) return onSearchChange(val);
-    if (key === 'cohort' && onCohortFilterChange) return onCohortFilterChange(val);
-    if (key === 'status' && onStatusFilterChange) return onStatusFilterChange(val);
-    if (key === 'progress' && onProgressFilterChange) return onProgressFilterChange(val);
-    if (key === 'group' && onGroupFilterChange) return onGroupFilterChange(val);
-    if (key === 'device' && onDeviceFilterChange) return onDeviceFilterChange(val);
-    if (key === 'programType' && onProgramFilterChange) return onProgramFilterChange(val);
-
-    setLocalFilters((prev) => ({ ...prev, [key]: val }));
+  const handleFilterChange = (key: StudentFilterKey, value: string) => {
     setClientPage(1);
+    handleClearSelection();
+    if (onFilterChange) {
+      onFilterChange(key, value);
+    } else {
+      setLocalFilters((prev) => ({ ...prev, [key]: value }));
+      if (key === 'search') onSearchChange?.(value);
+      if (key === 'cohort') onCohortFilterChange?.(value);
+      if (key === 'status') onStatusFilterChange?.(value);
+      if (key === 'progress') onProgressFilterChange?.(value);
+      if (key === 'group') onGroupFilterChange?.(value);
+      if (key === 'device') onDeviceFilterChange?.(value);
+      if (key === 'programType') onProgramFilterChange?.(value);
+    }
   };
 
   const resetFilters = () => {
+    setClientPage(1);
+    handleClearSelection();
     if (onResetFilters) {
       onResetFilters();
     } else {
       setLocalFilters(defaultLocalFilters);
-      setClientPage(1);
+      onSearchChange?.('');
+      onCohortFilterChange?.('all');
+      onStatusFilterChange?.('all');
+      onProgressFilterChange?.('all');
+      onGroupFilterChange?.('all');
+      onDeviceFilterChange?.('all');
+      onProgramFilterChange?.('all');
     }
   };
 
@@ -202,107 +232,7 @@ export function StudentsTable({
     } else {
       setClientPage(page);
     }
-    // Clear selection on page change
-    setSelectedIds(new Set());
-  };
-
-  const handleDeleteClick = (studentId: string, studentName: string) => {
-    setDeleteModal({ isOpen: true, studentId, studentName });
-  };
-
-  const queryClient = useQueryClient();
-
-  const handleConfirmDelete = async () => {
-    if (!deleteModal.studentId) return;
-
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/students/${deleteModal.studentId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to delete student');
-      }
-
-      setDeleteModal({ isOpen: false });
-      // Remove from selection if it was selected
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(deleteModal.studentId!);
-        return next;
-      });
-      toast.success('Student deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-    } catch (error) {
-      toast.error(
-        `Failed to delete student: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  // ── Bulk selection helpers ───────────────────────────────────────────────────
-  const pageIds = useMemo(() => paginated.map((s) => s._id!).filter(Boolean), [paginated]);
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id));
-  const somePageSelected = pageIds.some((id) => selectedIds.has(id));
-
-  const handleSelectAll = () => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (allPageSelected) {
-        // Deselect all on this page
-        pageIds.forEach((id) => next.delete(id));
-      } else {
-        // Select all on this page
-        pageIds.forEach((id) => next.add(id));
-      }
-      return next;
-    });
-  };
-
-  const handleToggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const handleClearSelection = () => {
-    setSelectedIds(new Set());
-  };
-
-  const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return;
-    setIsBulkDeleting(true);
-    try {
-      const response = await fetch('/api/students/bulk-delete', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentIds: Array.from(selectedIds) }),
-      });
-
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to delete students');
-
-      setBulkDeleteModal(false);
-      setSelectedIds(new Set());
-      toast.success(`${data.data?.deleted ?? selectedIds.size} student(s) deleted successfully`);
-      queryClient.invalidateQueries({ queryKey: ['students'] });
-    } catch (error) {
-      toast.error(
-        `Failed to delete students: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    } finally {
-      setIsBulkDeleting(false);
-    }
+    handleClearSelection();
   };
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -325,7 +255,7 @@ export function StudentsTable({
         hasActiveFilters={hasActiveFilters}
       />
 
-      {/* ── Bulk action toolbar ── */}
+      {/* Bulk action toolbar */}
       <StudentsTableBulkBar
         selectedCount={selectedIds.size}
         onClearSelection={handleClearSelection}
@@ -334,76 +264,20 @@ export function StudentsTable({
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-190 text-sm">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b bg-muted/10">
-                {headerGroup.headers.map((header) => {
-                  const id = header.id;
-                  const isSelect = id === 'select';
-                  const isStudent = id === 'student';
-                  const isAction = id === 'action';
-
-                  if (isSelect) {
-                    return (
-                      <th key={header.id} className="px-4 py-3 w-10">
-                        <input
-                          type="checkbox"
-                          checked={allPageSelected}
-                          ref={(el) => {
-                            if (el) el.indeterminate = somePageSelected && !allPageSelected;
-                          }}
-                          onChange={handleSelectAll}
-                          className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
-                          aria-label="Select all students on this page"
-                          id="select-all-students"
-                        />
-                      </th>
-                    );
-                  }
-
-                  return (
-                    <th
-                      key={header.id}
-                      className={`py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${
-                        isStudent
-                          ? 'text-left px-6'
-                          : isAction
-                            ? 'text-right px-6'
-                            : 'text-left px-4'
-                      }`}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-
-          <tbody className="divide-y divide-border">
-            {isLoading ? (
-              <StudentsTableSkeleton />
-            ) : paginated.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-6 py-14 text-center text-muted-foreground italic">
-                  No students found matching your criteria.
-                </td>
-              </tr>
-            ) : (
-              paginated.map((s) => (
-                <StudentsTableRow
-                  key={s._id}
-                  student={s}
-                  onDeleteClick={handleDeleteClick}
-                  isDeleting={isDeleting}
-                  isSelected={selectedIds.has(s._id!)}
-                  onToggleSelect={handleToggleSelect}
-                />
-              ))
-            )}
-          </tbody>
+          <StudentsTableHeader
+            table={table}
+            allPageSelected={allPageSelected}
+            somePageSelected={somePageSelected}
+            onSelectAll={handleSelectAll}
+          />
+          <StudentsTableBody
+            isLoading={isLoading}
+            students={paginated}
+            selectedIds={selectedIds}
+            isDeleting={isDeleting}
+            onDeleteClick={(id, name) => handleDeleteClick({ _id: id, name } as StudentWithRelations)}
+            onToggleSelect={handleToggleSelect}
+          />
         </table>
       </div>
 
