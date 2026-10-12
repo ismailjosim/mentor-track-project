@@ -34,10 +34,13 @@ export async function GET(request: NextRequest) {
     const callLogFilter: Record<string, unknown> = { ownerId: userId };
 
     if (selectedCohort) {
-      const studentIds = await Student.find({ ownerId: userId, cohort: selectedCohort }).distinct(
-        '_id'
-      );
-      callLogFilter.studentId = { $in: studentIds };
+      const cohortRegex = new RegExp(`^.*${selectedCohort}.*$`, 'i');
+      const studentIds = await Student.find({
+        ownerId: userId,
+        $or: [{ cohort: selectedCohort }, { cohort: cohortRegex }],
+      }).distinct('_id');
+      const allStudentIdMatches = [...studentIds, ...studentIds.map((id) => id.toString())];
+      callLogFilter.studentId = { $in: allStudentIdMatches };
     }
 
     const now = new Date();
@@ -85,7 +88,7 @@ export async function GET(request: NextRequest) {
       ...callLogFilter,
       date: { $gte: minDate, $lte: maxDate },
     })
-      .select('date status')
+      .select('date status studentId')
       .lean();
 
     let totalCalls = 0;
@@ -114,6 +117,12 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    const uniqueStudentsCalled = new Set(
+      logs
+        .map((l: { studentId?: unknown }) => String(l.studentId))
+        .filter((id) => id && id !== 'undefined')
+    ).size;
+
     const receivedRate = totalCalls > 0 ? Math.round((receivedCalls / totalCalls) * 100) : 0;
 
     return NextResponse.json(
@@ -124,6 +133,7 @@ export async function GET(request: NextRequest) {
           receivedCalls,
           notReceivedCalls: totalCalls - receivedCalls,
           receivedRate,
+          uniqueStudentsCalled,
         },
         chartData,
       })

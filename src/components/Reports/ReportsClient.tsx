@@ -9,17 +9,30 @@ import { CohortSummaryCards } from './CohortSummaryCards';
 import { AssignmentSubmissionReport } from './AssignmentSubmissionReport';
 import { CallRoundsReport } from './CallRoundsReport';
 import { AssignmentWiseCallsReport } from './AssignmentWiseCallsReport';
+import { CallHistoryReport } from './CallHistoryReport';
 import { ReportsHeader } from './ReportsHeader';
 import type { GeneratedReport } from '@/types/reports';
 import { AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const DEFAULT_SECTIONS = ['summary', 'assignmentSubmission', 'callRounds', 'assignmentWiseCalls'];
+const DEFAULT_SECTIONS = [
+  'summary',
+  'assignmentSubmission',
+  'callHistory',
+  'callRounds',
+  'assignmentWiseCalls',
+];
+
+interface GeneratedReportWithCohorts extends GeneratedReport {
+  availableCohorts?: string[];
+}
 
 export function ReportsClient() {
   const [selectedSections, setSelectedSections] = useState<string[]>(DEFAULT_SECTIONS);
   const [onlyMentorshipGroup, setOnlyMentorshipGroup] = useState(false);
-  const [report, setReport] = useState<GeneratedReport | null>(null);
+  const [selectedCohort, setSelectedCohort] = useState<string>('all');
+  const [availableCohorts, setAvailableCohorts] = useState<string[]>(['13', '14']);
+  const [report, setReport] = useState<GeneratedReportWithCohorts | null>(null);
 
   const toggleSection = (key: string) => {
     setSelectedSections((prev) =>
@@ -29,12 +42,19 @@ export function ReportsClient() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const response = await reportsApi.generate(selectedSections, onlyMentorshipGroup);
+      const response = await reportsApi.generate(
+        selectedSections,
+        onlyMentorshipGroup,
+        selectedCohort
+      );
       if (response.error) throw new Error(response.error);
-      return response.data as GeneratedReport;
+      return response.data as GeneratedReportWithCohorts;
     },
     onSuccess: (data) => {
       setReport(data);
+      if (data.availableCohorts && data.availableCohorts.length > 0) {
+        setAvailableCohorts(data.availableCohorts);
+      }
       toast.success('Report generated successfully');
     },
     onError: (err: Error) => {
@@ -50,11 +70,32 @@ export function ReportsClient() {
   const buildExportRows = (): Record<string, unknown>[] => {
     if (!report) return [];
     const rows: Record<string, unknown>[] = [];
+    const cohortLabel = selectedCohort === 'all' ? 'All Batches' : `Batch ${selectedCohort}`;
+
+    if (report.summary) {
+      rows.push({
+        Section: 'Cohort Summary',
+        Cohort: cohortLabel,
+        'Total Students': report.summary.totalStudents,
+        'Joined Mentorship': report.summary.joinedMentorship,
+        'Not Joined': report.summary.notJoinedMentorship,
+        'Completed All Assignments': report.summary.completedAllAssignments,
+      });
+      report.summary.perAssignment.forEach((row) => {
+        rows.push({
+          Section: 'Cohort Summary - Assignments',
+          Cohort: cohortLabel,
+          Assignment: row.assignmentKey,
+          Submitted: row.submitted,
+        });
+      });
+    }
 
     if (report.assignmentSubmission) {
       report.assignmentSubmission.assignments.forEach((row) => {
         rows.push({
           Section: 'Assignment Submission',
+          Cohort: cohortLabel,
           Assignment: row.assignmentKey,
           Submitted: row.submitted,
           Total: row.totalStudents,
@@ -65,9 +106,46 @@ export function ReportsClient() {
       });
     }
 
+    if (report.callHistory) {
+      rows.push({
+        Section: 'Call History - Summary',
+        Cohort: cohortLabel,
+        'Total Calls': report.callHistory.summary.totalCalls,
+        'Unique Students Contacted': report.callHistory.summary.uniqueStudentsCalled,
+        'Received Calls': report.callHistory.summary.receivedCalls,
+        'Not Received Calls': report.callHistory.summary.notReceivedCalls,
+        'Success Rate %': report.callHistory.summary.receivedRate,
+      });
+
+      report.callHistory.weekly.forEach((item) => {
+        rows.push({
+          Section: 'Call History - Weekly',
+          Cohort: cohortLabel,
+          Period: item.label,
+          'Total Calls': item.total,
+          Received: item.received,
+          'Not Received': item.notReceived,
+          'Success Rate %': item.successRate,
+        });
+      });
+
+      report.callHistory.monthly.forEach((item) => {
+        rows.push({
+          Section: 'Call History - Monthly',
+          Cohort: cohortLabel,
+          Period: item.label,
+          'Total Calls': item.total,
+          Received: item.received,
+          'Not Received': item.notReceived,
+          'Success Rate %': item.successRate,
+        });
+      });
+    }
+
     if (report.callRounds) {
       rows.push({
         Section: 'Call Rounds',
+        Cohort: cohortLabel,
         'Total Students': report.callRounds.totalStudents,
         'Completed Rounds': report.callRounds.completedRounds,
         'Never Called': report.callRounds.studentsNeverCalled,
@@ -76,6 +154,7 @@ export function ReportsClient() {
       report.callRounds.distribution.forEach((d) => {
         rows.push({
           Section: 'Call Rounds - Distribution',
+          Cohort: cohortLabel,
           Round: d.round,
           'Students Reached': d.studentsReached,
           'Percent of Cohort': d.percentOfCohort,
@@ -87,26 +166,10 @@ export function ReportsClient() {
       report.assignmentWiseCalls.rows.forEach((row) => {
         rows.push({
           Section: 'Assignment-wise Calls',
+          Cohort: cohortLabel,
           'Last Completed at Call Time': row.lastCompletedAtCallTime,
           'Pursuing Assignment': row.pursuingAssignment,
           'Call Count': row.callCount,
-        });
-      });
-    }
-
-    if (report.summary) {
-      rows.push({
-        Section: 'Cohort Summary',
-        'Total Students': report.summary.totalStudents,
-        'Joined Mentorship': report.summary.joinedMentorship,
-        'Not Joined': report.summary.notJoinedMentorship,
-        'Completed All Assignments': report.summary.completedAllAssignments,
-      });
-      report.summary.perAssignment.forEach((row) => {
-        rows.push({
-          Section: 'Cohort Summary - Assignments',
-          Assignment: row.assignmentKey,
-          Submitted: row.submitted,
         });
       });
     }
@@ -121,7 +184,8 @@ export function ReportsClient() {
       return;
     }
     const blob = format === 'csv' ? exportToCSV(rows) : exportToExcel(rows);
-    downloadFile(blob, generateExportFilename('report', format));
+    const suffix = selectedCohort !== 'all' ? `batch-${selectedCohort}` : 'all-batches';
+    downloadFile(blob, generateExportFilename(`report-${suffix}`, format));
     toast.success(`Report exported as ${format.toUpperCase()}`);
   };
 
@@ -146,6 +210,9 @@ export function ReportsClient() {
             onToggleSection={toggleSection}
             onlyMentorshipGroup={onlyMentorshipGroup}
             onToggleMentorshipGroup={() => setOnlyMentorshipGroup((v) => !v)}
+            selectedCohort={selectedCohort}
+            onSelectCohort={setSelectedCohort}
+            availableCohorts={availableCohorts}
             onGenerate={handleGenerate}
             loading={loading}
           />
@@ -153,8 +220,9 @@ export function ReportsClient() {
 
         <div className="xl:col-span-2 space-y-6">
           {!report && !loading && (
-            <div className="surface p-10 text-center text-sm text-muted-foreground">
-              Select report sections on the left and click Generate Report.
+            <div className="surface p-12 text-center text-sm text-muted-foreground">
+              Select batch and report sections on the left, then click{' '}
+              <strong>Generate Report</strong>.
             </div>
           )}
 
@@ -162,6 +230,7 @@ export function ReportsClient() {
           {report?.assignmentSubmission && (
             <AssignmentSubmissionReport data={report.assignmentSubmission} />
           )}
+          {report?.callHistory && <CallHistoryReport data={report.callHistory} />}
           {report?.callRounds && <CallRoundsReport data={report.callRounds} />}
           {report?.assignmentWiseCalls && (
             <AssignmentWiseCallsReport data={report.assignmentWiseCalls} />

@@ -21,11 +21,9 @@
 - Follow up call generates automatically after add last call log
 - Student Tracking data mismatch FIXED (now shows correct % vs active assignment)
 - assignment collection data array format: ['A-05','A-06'...]
+- Bulk assignment marks update via Excel/CSV sheet (Name, Email, marks columns) with auto-detection, deadline tier selection (60/50/30), matching by user email, and status rules (marks > 0 => Completed, marks <= 0 like -2/-4 or empty => Submitted pending marks).
 
 📋 TODO/IN PROGRESS:
-- assignment collection data array format: ['A-05','A-06'...]
 - Advanced indexing optimization for frequently queried fields
-- Remove analyze button from student details page (wasn't on page)
 - Cross-tab cache synchronization (optional enhancement)
 - Offline support with service workers (optional enhancement)
-

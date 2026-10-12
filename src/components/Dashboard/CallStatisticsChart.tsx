@@ -35,6 +35,7 @@ interface CallStatsResponse {
     receivedCalls: number;
     notReceivedCalls: number;
     receivedRate: number;
+    uniqueStudentsCalled?: number;
   };
   chartData: CallStatItem[];
 }
@@ -57,6 +58,7 @@ export function CallStatisticsChart({ cohort }: CallStatisticsChartProps) {
     receivedCalls: 0,
     notReceivedCalls: 0,
     receivedRate: 0,
+    uniqueStudentsCalled: 0,
   };
 
   const chartData = data?.chartData || [];
@@ -105,7 +107,11 @@ export function CallStatisticsChart({ cohort }: CallStatisticsChartProps) {
           <p className="mt-0.5 text-xl font-bold tracking-tight text-foreground">
             {summary.totalCalls}
           </p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">In selected period</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            {summary.uniqueStudentsCalled
+              ? `${summary.uniqueStudentsCalled} students reached`
+              : 'In selected period'}
+          </p>
         </div>
 
         <div className="rounded-lg border border-success-border bg-success-soft/50 p-3">

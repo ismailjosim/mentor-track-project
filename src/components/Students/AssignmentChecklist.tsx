@@ -53,7 +53,7 @@ export function AssignmentChecklist({
   const handleAssignmentClick = (assignment: Assignment | undefined, num: number) => {
     const a: Assignment = assignment || {
       assignmentNumber: num,
-      status: 'NOT_DEFINED',
+      status: 'PENDING',
       marks: undefined,
       maxMarks: 60,
     };

@@ -205,24 +205,26 @@ export function StudentsPageClient() {
             filtered by {batchLabel(selectedBatch)}.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          <button
-            onClick={() => setShowAnalysis((visible) => !visible)}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 sm:px-4 text-sm font-semibold text-primary flex-1 sm:flex-initial"
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>Analyze</span>
-          </button>
-          <Link
-            href={`${PAGE_ROUTES.STUDENTS}/import`}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border bg-card px-3 sm:px-4 text-sm font-semibold flex-1 sm:flex-initial"
-          >
-            <FileUp className="h-4 w-4" />
-            <span>Import CSV</span>
-          </Link>
+        <div className="flex flex-col items-stretch sm:items-end gap-2 w-full sm:w-auto shrink-0">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setShowAnalysis((visible) => !visible)}
+              className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/10 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-primary transition-colors hover:bg-primary/20 flex-1 sm:flex-1"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>Analyze</span>
+            </button>
+            <Link
+              href={`${PAGE_ROUTES.STUDENTS}/import`}
+              className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 sm:px-4 text-xs sm:text-sm font-semibold text-foreground transition-colors hover:bg-muted flex-1 sm:flex-1"
+            >
+              <FileUp className="h-4 w-4" />
+              <span>Import CSV</span>
+            </Link>
+          </div>
           <Link
             href={`${PAGE_ROUTES.STUDENTS}/new`}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-primary px-3 sm:px-4 text-sm font-semibold text-primary-foreground w-full sm:w-auto"
+            className="inline-flex h-9 sm:h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs sm:text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 transition-colors hover:bg-primary/90 w-full"
           >
             <Plus className="h-4 w-4" />
             <span>Add Student</span>

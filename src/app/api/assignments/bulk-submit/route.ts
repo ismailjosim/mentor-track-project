@@ -10,29 +10,7 @@ import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
-const parseAssignmentNumber = (assignment: string | undefined) => {
-  if (!assignment) return null;
-
-  const assignmentNumber = parseInt(assignment.split('-')[1], 10);
-
-  return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
-};
-
-const isAssignmentSubmitted = (assignment: any) =>
-  assignment?.status === 'SUBMITTED' || assignment?.status === 'COMPLETED';
-
-const getMissedReleasedAssignmentCount = (assignments: any[] = [], currentAssignment: number) =>
-  Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
-    const assignment = assignments.find((item) => item.assignmentNumber === assignmentNumber);
-
-    return !isAssignmentSubmitted(assignment);
-  }).length;
-
-const getStatusFromMissedCount = (missedCount: number) => {
-  if (missedCount === 0) return 'On Track';
-  if (missedCount === 1) return 'Behind';
-  return 'At Risk';
-};
+import { parseAssignmentNumber, resolveStudentProgress } from '@/lib/student-progress';
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,18 +22,41 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = AssignmentBulkSubmitSchema.parse(body);
 
-    const { assignmentNumber, emails, submittedDate } = validatedData;
+    const { assignmentNumber, emails, items, tier = 60, submittedDate } = validatedData;
     const submissionDate = submittedDate || new Date();
     const settings = await Settings.findOne({ ownerId: userId }).lean();
     const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
 
-    // Normalize emails to lowercase
-    const normalizedEmails = emails.map((email: string) => email.toLowerCase().trim());
+    // Normalize incoming items
+    let targetItems: Array<{ email: string; marks?: number | null; name?: string }> = [];
+
+    if (Array.isArray(items) && items.length > 0) {
+      targetItems = items
+        .filter((it) => it && typeof it.email === 'string')
+        .map((it) => ({
+          email: it.email.toLowerCase().trim(),
+          marks: typeof it.marks === 'number' ? it.marks : undefined,
+          name: it.name?.trim(),
+        }));
+    } else if (Array.isArray(emails) && emails.length > 0) {
+      targetItems = emails
+        .filter((e) => typeof e === 'string' && e.trim().length > 0)
+        .map((email) => ({
+          email: email.toLowerCase().trim(),
+        }));
+    }
+
+    const itemMap = new Map<string, { email: string; marks?: number | null; name?: string }>();
+    for (const it of targetItems) {
+      itemMap.set(it.email, it);
+    }
+
+    const uniqueEmails = Array.from(itemMap.keys());
 
     // Find all matching students
     const students = await Student.find({
       ownerId: userId,
-      email: { $in: normalizedEmails },
+      email: { $in: uniqueEmails },
     });
 
     const studentMap = new Map(students.map((s: any) => [s.email.toLowerCase(), s]));
@@ -65,13 +66,16 @@ export async function POST(request: NextRequest) {
     // Track results
     let createdCount = 0;
     let updatedCount = 0;
+    let completedCount = 0;
+    let pendingCount = 0;
     const matchedStudents: any[] = [];
 
     // Process each email
-    for (const email of normalizedEmails) {
+    for (const email of uniqueEmails) {
       if (!email) continue;
 
       const student = studentMap.get(email);
+      const item = itemMap.get(email);
 
       if (!student) {
         unmatchedEmails.push(email);
@@ -79,10 +83,26 @@ export async function POST(request: NextRequest) {
       }
 
       matchedEmails.add(email);
+
+      // Determine marks & status based on business rules:
+      // If marks > 0: status is COMPLETED with assigned marks (capped at tier maxMarks)
+      // If marks <= 0 (e.g. 0, -2, -4) or not provided: status is SUBMITTED (pending marks)
+      const hasPositiveMarks = item?.marks !== undefined && item?.marks !== null && item.marks > 0;
+      const status = hasPositiveMarks ? 'COMPLETED' : 'SUBMITTED';
+      const marks = hasPositiveMarks ? Math.min(tier, Math.max(0, item.marks!)) : undefined;
+
+      if (status === 'COMPLETED') {
+        completedCount++;
+      } else {
+        pendingCount++;
+      }
+
       matchedStudents.push({
         email: student.email,
         name: student.name,
         id: student._id.toString(),
+        marks,
+        status,
       });
 
       // Initialize assignments array if needed
@@ -95,44 +115,58 @@ export async function POST(request: NextRequest) {
         (a: any) => a.assignmentNumber === assignmentNumber
       );
 
+      const assignmentData: any = {
+        assignmentNumber,
+        status,
+        maxMarks: tier,
+        date: submissionDate,
+      };
+
+      if (marks !== undefined) {
+        assignmentData.marks = marks;
+      }
+
       if (existingIndex >= 0) {
         // Update existing embedded assignment
         student.assignments[existingIndex] = {
-          assignmentNumber,
-          status: 'SUBMITTED',
-          date: submissionDate,
+          ...(student.assignments[existingIndex].toObject?.() ||
+            student.assignments[existingIndex]),
+          ...assignmentData,
         };
+        if (marks === undefined) {
+          delete student.assignments[existingIndex].marks;
+        }
         updatedCount++;
       } else {
         // Add new embedded assignment
-        student.assignments.push({
-          assignmentNumber,
-          status: 'SUBMITTED',
-          date: submissionDate,
-        });
+        student.assignments.push(assignmentData);
         createdCount++;
       }
 
-      // Update student's lastCompletedAssignment if needed
-      const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
-      const currentLast = student.lastCompletedAssignment || 'None';
+      student.markModified('assignments');
 
-      if (currentLast === 'None' || parseInt(currentLast.split('-')[1]) < assignmentNumber) {
-        student.lastCompletedAssignment = assignmentKey;
-      }
-
+      // Update student progress & status
       if (
         currentAssignmentNumber &&
-        assignmentNumber <= currentAssignmentNumber &&
         student.currentStatus !== 'Dropped' &&
         student.currentStatus !== 'Completed'
       ) {
-        const missedAssignmentCount = getMissedReleasedAssignmentCount(
-          student.assignments,
+        const { nextStatus, lastCompletedAssignment } = resolveStudentProgress(
+          student,
           currentAssignmentNumber
         );
 
-        student.currentStatus = getStatusFromMissedCount(missedAssignmentCount);
+        student.currentStatus = nextStatus;
+        if (lastCompletedAssignment) {
+          student.lastCompletedAssignment = lastCompletedAssignment;
+        }
+      } else {
+        const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
+        const currentLast = student.lastCompletedAssignment || 'None';
+
+        if (currentLast === 'None' || parseInt(currentLast.split('-')[1], 10) < assignmentNumber) {
+          student.lastCompletedAssignment = assignmentKey;
+        }
       }
 
       // Save the updated student document
@@ -145,6 +179,9 @@ export async function POST(request: NextRequest) {
       unmatched: unmatchedEmails.length,
       created: createdCount,
       updated: updatedCount,
+      completed: completedCount,
+      pending: pendingCount,
+      tier,
     });
 
     const response = createResponse(200, 'Bulk submit completed successfully', {
@@ -158,8 +195,11 @@ export async function POST(request: NextRequest) {
       },
       created: createdCount,
       updated: updatedCount,
+      completed: completedCount,
+      pending: pendingCount,
+      tier,
       total: {
-        processed: normalizedEmails.length,
+        processed: uniqueEmails.length,
         successfulMatches: matchedStudents.length,
       },
     });

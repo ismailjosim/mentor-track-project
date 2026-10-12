@@ -6,3 +6,4 @@ export * from './CohortSummaryCards';
 export * from './AssignmentSubmissionReport';
 export * from './CallRoundsReport';
 export * from './AssignmentWiseCallsReport';
+export * from './CallHistoryReport';

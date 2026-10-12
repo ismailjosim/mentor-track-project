@@ -41,6 +41,8 @@ export type StudentImportData = z.infer<typeof StudentDataSchema>;
  */
 const AssignmentDataSchema = z.object({
   email: z.string().email('Invalid email format'),
+  marks: z.number().optional().nullable(),
+  name: z.string().optional(),
 });
 
 export type AssignmentImportData = z.infer<typeof AssignmentDataSchema>;
@@ -118,7 +120,16 @@ function normalizeFieldName(name: string): string {
  */
 const FIELD_ALIASES: Record<string, string[]> = {
   name: ['name', 'studentname', 'fullname', 'student', 'nam'],
-  email: ['email', 'emailaddress', 'mail', 'emailid'],
+  email: ['email', 'emailaddress', 'mail', 'emailid', 'studentemail'],
+  marks: [
+    'marks',
+    'mark',
+    'score',
+    'assignmentmarks',
+    'assignmentscore',
+    'receivedmarks',
+    'obtainedmarks',
+  ],
   phone: ['phone', 'phonenumber', 'phoneno', 'mobile', 'mobileno', 'contact', 'cell', 'cellphone'],
   whatsapp: ['whatsapp', 'wa', 'wanumber', 'whatsappnumber', 'whatsappno'],
   cohort: ['cohort', 'batch', 'batchno', 'cohortbatch', 'batchnumber', 'batchname'],
@@ -386,7 +397,7 @@ export function validateStudentData(
 }
 
 /**
- * Validate assignment import data (email only)
+ * Validate assignment import data (extract email, marks, and optional name)
  */
 export function validateAssignmentData(row: any): {
   valid: boolean;
@@ -394,11 +405,82 @@ export function validateAssignmentData(row: any): {
   error?: string;
 } {
   try {
-    const normalized = {
-      email: normalizeEmail(row.email),
+    if (!row || typeof row !== 'object') {
+      return { valid: false, error: 'Row is not an object' };
+    }
+
+    // Map normalized row keys
+    const normalizedKeyMap: Record<string, any> = {};
+    for (const key of Object.keys(row)) {
+      normalizedKeyMap[normalizeFieldName(key)] = row[key];
+    }
+
+    const getMatchedValue = (field: string) => {
+      const aliases = FIELD_ALIASES[field] || [field.toLowerCase()];
+      for (const alias of aliases) {
+        if (
+          normalizedKeyMap[alias] !== undefined &&
+          normalizedKeyMap[alias] !== null &&
+          normalizedKeyMap[alias] !== ''
+        ) {
+          return normalizedKeyMap[alias];
+        }
+      }
+      return undefined;
     };
 
-    const result = AssignmentDataSchema.parse(normalized);
+    let rawEmail = getMatchedValue('email');
+    let rawMarks = getMatchedValue('marks');
+    const rawName = getMatchedValue('name');
+
+    // If email wasn't matched via key aliases, scan values for an email
+    if (!rawEmail) {
+      for (const val of Object.values(row)) {
+        if (typeof val === 'string' && val.includes('@') && val.includes('.')) {
+          const match = val.match(/[^\s@]+@[^\s@]+\.[^\s@]+/);
+          if (match) {
+            rawEmail = match[0];
+            break;
+          }
+        }
+      }
+    }
+
+    // If marks wasn't matched via key aliases, scan remaining numeric values
+    if (rawMarks === undefined) {
+      for (const [key, val] of Object.entries(row)) {
+        const normKey = normalizeFieldName(key);
+        if (normKey === 'email' || normKey === 'name') continue;
+        if (val !== undefined && val !== null && val !== '') {
+          const str = String(val).trim();
+          if (/^-?\d+(\.\d+)?$/.test(str)) {
+            rawMarks = Number(str);
+            break;
+          }
+        }
+      }
+    }
+
+    const email = normalizeEmail(rawEmail);
+    if (!email) {
+      return { valid: false, error: 'Email is required' };
+    }
+
+    let parsedMarks: number | undefined | null = undefined;
+    if (rawMarks !== undefined && rawMarks !== null && rawMarks !== '') {
+      const num = Number(rawMarks);
+      if (!Number.isNaN(num)) {
+        parsedMarks = num;
+      }
+    }
+
+    const normalizedData: AssignmentImportData = {
+      email,
+      marks: parsedMarks,
+      name: rawName ? String(rawName).trim() : undefined,
+    };
+
+    const result = AssignmentDataSchema.parse(normalizedData);
     return { valid: true, data: result };
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -495,6 +577,7 @@ export async function processAssignmentImportFile(file: File): Promise<{
   rows: number;
   preview: any[];
   validEmails: string[];
+  items: AssignmentImportData[];
   invalidRows: { rowIndex: number; data: any; error: string }[];
 }> {
   // Validate file type and size
@@ -518,6 +601,7 @@ export async function processAssignmentImportFile(file: File): Promise<{
 
   const headers = Object.keys(data[0] || {});
   const validEmails: string[] = [];
+  const items: AssignmentImportData[] = [];
   const invalidRows: { rowIndex: number; data: any; error: string }[] = [];
 
   // Validate each row
@@ -527,6 +611,7 @@ export async function processAssignmentImportFile(file: File): Promise<{
 
     if (validation.valid && validation.data) {
       validEmails.push(validation.data.email);
+      items.push(validation.data);
     } else {
       invalidRows.push({
         rowIndex: i,
@@ -542,6 +627,7 @@ export async function processAssignmentImportFile(file: File): Promise<{
     rows: data.length,
     preview: data.slice(0, 10),
     validEmails,
+    items,
     invalidRows,
   };
 }

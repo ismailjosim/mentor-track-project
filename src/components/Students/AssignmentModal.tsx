@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Plus, Minus } from 'lucide-react';
 import type { Assignment, AssignmentMaxMarks } from '@/interfaces/assignment.interface';
 import { cn } from '@/lib/cn';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/Modal';
@@ -26,15 +26,60 @@ export function AssignmentModal({
   onSuccess,
 }: AssignmentModalProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [newStatus, setNewStatus] = useState<string>(selectedAssignment?.status || 'NOT_DEFINED');
-  const [newMarks, setNewMarks] = useState<string>(
-    selectedAssignment?.marks !== undefined && selectedAssignment.marks !== null
-      ? String(selectedAssignment.marks)
-      : ''
-  );
+  const initialStatus =
+    selectedAssignment?.status && selectedAssignment.status !== 'NOT_DEFINED'
+      ? selectedAssignment.status
+      : 'PENDING';
+  const [newStatus, setNewStatus] = useState<string>(initialStatus);
   const [newMaxMarks, setNewMaxMarks] = useState<AssignmentMaxMarks>(
     selectedAssignment?.maxMarks ?? 60
   );
+  const [newMarks, setNewMarks] = useState<string>(
+    selectedAssignment?.marks !== undefined && selectedAssignment.marks !== null
+      ? String(selectedAssignment.marks)
+      : initialStatus === 'COMPLETED'
+        ? String(selectedAssignment?.maxMarks ?? 60)
+        : ''
+  );
+  const [prevAssignment, setPrevAssignment] = useState(selectedAssignment);
+
+  if (selectedAssignment !== prevAssignment) {
+    setPrevAssignment(selectedAssignment);
+    const status =
+      selectedAssignment?.status && selectedAssignment.status !== 'NOT_DEFINED'
+        ? selectedAssignment.status
+        : 'PENDING';
+    setNewStatus(status);
+    const max = selectedAssignment?.maxMarks ?? 60;
+    setNewMaxMarks(max);
+    setNewMarks(
+      selectedAssignment?.marks !== undefined && selectedAssignment.marks !== null
+        ? String(selectedAssignment.marks)
+        : status === 'COMPLETED'
+          ? String(max)
+          : ''
+    );
+  }
+
+  const handleTierChange = (tier: AssignmentMaxMarks) => {
+    setNewMaxMarks(tier);
+    // User requirement: default field value to selected tier (e.g. 60 or 30)
+    setNewMarks(String(tier));
+  };
+
+  const handleStatusChangeDropdown = (status: string) => {
+    setNewStatus(status);
+    if (status === 'COMPLETED' && (!newMarks || newMarks.trim() === '')) {
+      setNewMarks(String(newMaxMarks));
+    }
+  };
+
+  const adjustMarks = (delta: number) => {
+    const current = newMarks.trim() !== '' ? Number(newMarks) : newMaxMarks;
+    if (Number.isNaN(current)) return;
+    const next = Math.min(newMaxMarks, Math.max(0, current + delta));
+    setNewMarks(String(next));
+  };
 
   const liveMarksNum = newMarks.trim() !== '' ? Number(newMarks) : null;
   const liveMarksPct =
@@ -151,7 +196,7 @@ export function AssignmentModal({
                 <button
                   key={tier}
                   type="button"
-                  onClick={() => setNewMaxMarks(tier)}
+                  onClick={() => handleTierChange(tier)}
                   className={cn(
                     'py-2 px-3 rounded-md border text-sm font-semibold transition-colors text-center',
                     newMaxMarks === tier
@@ -172,14 +217,14 @@ export function AssignmentModal({
             <label className="text-sm font-medium text-foreground mb-2 block">Update Status</label>
             <select
               value={newStatus}
-              onChange={(e) => setNewStatus(e.target.value)}
+              onChange={(e) => handleStatusChangeDropdown(e.target.value)}
               disabled={isLoading}
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50 text-sm"
             >
-              <option value="NOT_DEFINED">Not Defined</option>
               <option value="PENDING">Pending</option>
               <option value="SUBMITTED">Submitted (Pending Marks)</option>
               <option value="COMPLETED">Completed (Graded)</option>
+              <option value="NOT_DEFINED">Not Defined</option>
             </select>
 
             {newStatus === 'SUBMITTED' && (
@@ -192,19 +237,57 @@ export function AssignmentModal({
           {/* Marks input conditionally visible ONLY when COMPLETED */}
           {newStatus === 'COMPLETED' && (
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">
-                Assignment Marks (0–{newMaxMarks})
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={newMaxMarks}
-                value={newMarks}
-                onChange={(e) => setNewMarks(e.target.value)}
-                placeholder="Enter assignment marks"
-                disabled={isLoading}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50 text-sm"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-foreground">
+                  Assignment Marks (0–{newMaxMarks})
+                </label>
+                <span className="text-xs text-muted-foreground">Defaulted to {newMaxMarks}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => adjustMarks(-1)}
+                  disabled={isLoading || (liveMarksNum !== null && liveMarksNum <= 0)}
+                  className="h-10 w-10 shrink-0 rounded-md border border-border flex items-center justify-center hover:bg-muted font-bold transition-colors disabled:opacity-40"
+                  title="Minus 1 mark"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <input
+                  type="number"
+                  min={0}
+                  max={newMaxMarks}
+                  value={newMarks}
+                  onChange={(e) => setNewMarks(e.target.value)}
+                  placeholder="Enter marks"
+                  disabled={isLoading}
+                  className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-foreground disabled:opacity-50 text-sm text-center font-bold"
+                />
+                <button
+                  type="button"
+                  onClick={() => adjustMarks(1)}
+                  disabled={isLoading || (liveMarksNum !== null && liveMarksNum >= newMaxMarks)}
+                  className="h-10 w-10 shrink-0 rounded-md border border-border flex items-center justify-center hover:bg-muted font-bold transition-colors disabled:opacity-40"
+                  title="Plus 1 mark"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-end gap-1.5 mt-2">
+                <span className="text-[11px] text-muted-foreground mr-1">Quick adjust:</span>
+                {[-5, -1, 1, 5].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => adjustMarks(d)}
+                    disabled={isLoading}
+                    className="text-xs px-2.5 py-1 rounded border border-border bg-muted/40 hover:bg-muted text-foreground font-medium transition-colors"
+                  >
+                    {d > 0 ? `+${d}` : d}
+                  </button>
+                ))}
+              </div>
 
               {liveMarksPct !== null && (
                 <div className="mt-2">

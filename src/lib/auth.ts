@@ -1,6 +1,7 @@
 import { mongodbAdapter } from '@better-auth/mongo-adapter';
 import { betterAuth } from 'better-auth';
 import { nextCookies } from 'better-auth/next-js';
+import { admin } from 'better-auth/plugins';
 import { MongoClient } from 'mongodb';
 import { env } from '@/lib/env';
 
@@ -39,5 +40,11 @@ export const auth = betterAuth({
   trustedOrigins: [env.BETTER_AUTH_URL, env.NEXT_PUBLIC_AUTH_URL, env.NEXT_PUBLIC_API_URL].filter(
     Boolean
   ) as string[],
-  plugins: [nextCookies()],
+  plugins: [
+    nextCookies(),
+    admin({
+      defaultRole: 'user',
+      adminRole: ['admin', 'super_admin'],
+    }),
+  ],
 });

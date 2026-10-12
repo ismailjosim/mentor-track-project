@@ -47,14 +47,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // Calculate statistics
     const statusCounts = await CallLog.aggregate([
-      { $match: { studentId: new ObjectId(id), ownerId: userId } },
+      { $match: { ownerId: userId, studentId: { $in: [new ObjectId(id), id] } } },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
 
     const callsByStatus = Object.fromEntries(
       statusCounts.map((item: any) => [item._id, item.count])
     );
-    const totalCalls = callLogs.length;
+    const totalCalls = total;
     const lastCallDate = callLogs.length > 0 ? callLogs[0].date : null;
 
     // Calculate average time between calls

@@ -285,13 +285,20 @@ export const dashboardApi = {
 };
 
 export const reportsApi = {
-  generate: (sections: string[], onlyMentorshipGroup: boolean = false) => {
+  generate: (sections: string[], onlyMentorshipGroup: boolean = false, cohort?: string) => {
     const params = new URLSearchParams();
     params.set('sections', sections.join(','));
     if (onlyMentorshipGroup) params.set('onlyMentorshipGroup', 'true');
+    if (cohort && cohort !== 'all') params.set('cohort', cohort);
 
     return apiClient.get(`/api/reports?${params.toString()}`, {
       cacheTags: [CACHE_TAGS.REPORTS],
     });
   },
+};
+
+export const adminApi = {
+  getOverview: () => apiClient.get('/api/admin/overview'),
+  updateRole: (userId: string, role: string) =>
+    apiClient.post(`/api/admin/users/${userId}/role`, { role }),
 };

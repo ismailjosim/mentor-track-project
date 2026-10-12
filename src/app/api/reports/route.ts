@@ -2,6 +2,7 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import { generateReport, ReportSection } from '@/lib/report-logic';
 import { requireCurrentUserId } from '@/lib/auth-utils';
+import Student from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';
 
 const VALID_SECTIONS: ReportSection[] = [
@@ -9,11 +10,12 @@ const VALID_SECTIONS: ReportSection[] = [
   'callRounds',
   'assignmentWiseCalls',
   'summary',
+  'callHistory',
 ];
 
 /**
- * GET /api/reports?sections=assignmentSubmission,callRounds,assignmentWiseCalls,summary&onlyMentorshipGroup=false
- * Generates the requested report sections for the authenticated user's cohort.
+ * GET /api/reports?sections=assignmentSubmission,callRounds,assignmentWiseCalls,summary,callHistory&cohort=14&onlyMentorshipGroup=false
+ * Generates the requested report sections for the authenticated user's cohort/batch.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -25,6 +27,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const sectionsParam = searchParams.get('sections');
     const onlyMentorshipGroup = searchParams.get('onlyMentorshipGroup') === 'true';
+    const cohort = searchParams.get('cohort') || undefined;
 
     const requestedSections = sectionsParam
       ? sectionsParam
@@ -42,15 +45,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const report = await generateReport(userId as string, requestedSections, {
-      onlyMentorshipGroup,
-    });
+    const [report, distinctCohorts] = await Promise.all([
+      generateReport(userId as string, requestedSections, {
+        onlyMentorshipGroup,
+        cohort,
+      }),
+      Student.distinct('cohort', { ownerId: userId }),
+    ]);
 
-    logger.info('GET /api/reports', { sections: requestedSections });
+    const availableCohorts = Array.from(
+      new Set([...distinctCohorts.filter(Boolean).map(String), '13', '14'])
+    ).sort((a, b) => Number(a) - Number(b));
+
+    logger.info('GET /api/reports', { sections: requestedSections, cohort });
 
     const response = createResponse(200, 'Report generated successfully', {
       generatedAt: new Date().toISOString(),
       sections: requestedSections,
+      selectedCohort: cohort || 'all',
+      availableCohorts,
       ...report,
     });
     return NextResponse.json(response, { status: 200 });

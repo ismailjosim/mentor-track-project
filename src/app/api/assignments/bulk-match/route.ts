@@ -13,43 +13,90 @@ export async function POST(request: NextRequest) {
     const userId = authResult.userId;
 
     const body = await request.json();
-    const { emails } = body;
+    const { emails, items } = body;
 
-    if (!Array.isArray(emails) || emails.length === 0) {
-      return NextResponse.json(createResponse(400, 'Emails array is required'), { status: 400 });
+    let normalizedItems: Array<{ email: string; marks?: number | null; name?: string }> = [];
+
+    if (Array.isArray(items) && items.length > 0) {
+      normalizedItems = items
+        .filter((it: any) => it && typeof it.email === 'string')
+        .map((it: any) => ({
+          email: it.email.trim().toLowerCase(),
+          marks: typeof it.marks === 'number' ? it.marks : undefined,
+          name: typeof it.name === 'string' ? it.name.trim() : undefined,
+        }));
+    } else if (Array.isArray(emails) && emails.length > 0) {
+      normalizedItems = emails
+        .filter((e: any) => typeof e === 'string' && e.trim().length > 0)
+        .map((e: string) => ({ email: e.trim().toLowerCase() }));
+    } else {
+      return NextResponse.json(createResponse(400, 'Either items or emails array is required'), {
+        status: 400,
+      });
     }
 
-    // Normalize emails for matching
-    const normalizedEmails = emails.map((e: string) => e.trim().toLowerCase());
+    if (normalizedItems.length === 0) {
+      return NextResponse.json(createResponse(400, 'No valid emails provided'), { status: 400 });
+    }
+
+    const itemMap = new Map<string, { email: string; marks?: number | null; name?: string }>();
+    for (const item of normalizedItems) {
+      itemMap.set(item.email, item);
+    }
+
+    const uniqueEmails = Array.from(itemMap.keys());
 
     // Find students by email
     const students = await Student.find({
       ownerId: userId,
-      email: { $in: normalizedEmails },
-    }).select('_id email name');
+      email: { $in: uniqueEmails },
+    }).select('_id email name cohort');
 
-    const matchedEmails = students.map((s: any) => s.email.toLowerCase());
-    const unmatchedEmails = normalizedEmails.filter(
-      (email: string) => !matchedEmails.includes(email)
-    );
+    const matchedMap = new Map(students.map((s: any) => [s.email.toLowerCase(), s]));
+    const matchedStudents: any[] = [];
+    const unmatchedEmails: string[] = [];
+
+    for (const email of uniqueEmails) {
+      const student = matchedMap.get(email);
+      const item = itemMap.get(email);
+
+      if (student) {
+        const hasMarks = item?.marks !== undefined && item?.marks !== null;
+        const isCompleted = hasMarks && (item.marks as number) > 0;
+        matchedStudents.push({
+          studentId: student._id.toString(),
+          email: student.email,
+          name: student.name,
+          cohort: student.cohort,
+          sheetName: item?.name,
+          marks: item?.marks,
+          targetStatus: isCompleted ? 'COMPLETED' : 'SUBMITTED',
+        });
+      } else {
+        unmatchedEmails.push(email);
+      }
+    }
+
+    const withMarksCount = matchedStudents.filter((s) => s.targetStatus === 'COMPLETED').length;
+    const pendingMarksCount = matchedStudents.length - withMarksCount;
 
     logger.info('POST /api/assignments/bulk-match', {
-      totalEmails: emails.length,
-      matched: matchedEmails.length,
+      totalEmails: uniqueEmails.length,
+      matched: matchedStudents.length,
       unmatched: unmatchedEmails.length,
+      withMarks: withMarksCount,
+      pendingMarks: pendingMarksCount,
     });
 
     const response = createResponse(200, 'Emails matched successfully', {
-      matched: students.map((s: any) => ({
-        studentId: s._id,
-        email: s.email,
-        name: s.name,
-      })),
+      matched: matchedStudents,
       unmatched: unmatchedEmails,
       stats: {
-        matched: students.length,
+        matched: matchedStudents.length,
         unmatched: unmatchedEmails.length,
-        total: emails.length,
+        total: uniqueEmails.length,
+        withMarks: withMarksCount,
+        pendingMarks: pendingMarksCount,
       },
     });
 

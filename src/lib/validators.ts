@@ -64,15 +64,31 @@ export const UpdateStudentAssignmentSchema = z.object({
   date: z.coerce.date().optional(),
 });
 
-export const BulkAssignmentSubmitSchema = z.object({
-  assignmentNumber: z
-    .number()
-    .int()
-    .min(1, 'Assignment number must be between 1 and 10')
-    .max(10, 'Assignment number must be between 1 and 10'),
-  emails: z.array(z.string().email('Invalid email')).min(1, 'At least one email is required'),
-  submittedDate: z.coerce.date().optional(),
+export const BulkAssignmentItemSchema = z.object({
+  email: z.string().email('Invalid email'),
+  marks: z.number().optional().nullable(),
+  name: z.string().optional(),
 });
+
+export const BulkAssignmentSubmitSchema = z
+  .object({
+    assignmentNumber: z
+      .number()
+      .int()
+      .min(1, 'Assignment number must be between 1 and 10')
+      .max(10, 'Assignment number must be between 1 and 10'),
+    emails: z.array(z.string().email('Invalid email')).optional(),
+    items: z.array(BulkAssignmentItemSchema).optional(),
+    tier: z
+      .union([z.literal(30), z.literal(50), z.literal(60)])
+      .optional()
+      .default(60),
+    submittedDate: z.coerce.date().optional(),
+  })
+  .refine(
+    (data) => (data.emails && data.emails.length > 0) || (data.items && data.items.length > 0),
+    { message: 'At least one email or item is required' }
+  );
 
 // Legacy assignment schemas (kept for backward compatibility during migration)
 export const AssignmentCreateSchema = StudentAssignmentSchema.extend({
