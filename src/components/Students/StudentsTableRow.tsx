@@ -25,6 +25,45 @@ export function StudentsTableRow({
   const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
   const pct = lastDone * 10;
 
+  // Determine last submitted assignment (student-wise)
+  const submittedAssignments = (s.assignments || []).filter(
+    (a) =>
+      a.status === 'COMPLETED' ||
+      a.status === 'SUBMITTED' ||
+      (typeof a.marks === 'number' && !Number.isNaN(a.marks))
+  );
+
+  const maxFromAssignments =
+    submittedAssignments.length > 0
+      ? Math.max(...submittedAssignments.map((a) => a.assignmentNumber ?? a.assignment ?? 0))
+      : 0;
+  const bestLastNum = Math.max(maxFromAssignments, lastDone);
+  const lastSubmitted =
+    bestLastNum > 0 ? `A-${String(bestLastNum).padStart(2, '0')}` : '—';
+
+  // Calculate average marks across graded assignments
+  const gradedAssignments = (s.assignments || []).filter(
+    (a) => typeof a.marks === 'number' && !Number.isNaN(a.marks)
+  );
+
+  let avgMarks: number | null = null;
+  let avgMarksFormatted = '—';
+
+  if (gradedAssignments.length > 0) {
+    const totalMarks = gradedAssignments.reduce((sum, a) => sum + (a.marks || 0), 0);
+    avgMarks = totalMarks / gradedAssignments.length;
+    avgMarksFormatted = Number.isInteger(avgMarks)
+      ? String(avgMarks)
+      : avgMarks.toFixed(1);
+  } else if (typeof s.scicMarks === 'number' && !Number.isNaN(s.scicMarks)) {
+    avgMarks = s.scicMarks;
+    avgMarksFormatted = Number.isInteger(avgMarks)
+      ? String(avgMarks)
+      : avgMarks.toFixed(1);
+  }
+
+  const isPassingAvg = avgMarks !== null ? avgMarks >= 48 : false;
+
   return (
     <tr
       className={`hover:bg-muted/20 transition-colors ${isSelected ? 'bg-primary/5 hover:bg-primary/8' : ''}`}
@@ -98,9 +137,32 @@ export function StudentsTableRow({
         )}
       </td>
 
-      <td className="px-4 py-3 text-sm text-muted-foreground">{s.division ?? '—'}</td>
+      {/* Last Submitted Assignment */}
+      <td className="px-4 py-3">
+        {lastSubmitted !== '—' ? (
+          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-muted text-foreground border border-border">
+            {lastSubmitted}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        )}
+      </td>
 
-      <td className="px-4 py-3 text-sm text-muted-foreground">{s.workingDevice ?? '—'}</td>
+      {/* Average Marks */}
+      <td className="px-4 py-3">
+        {avgMarks !== null ? (
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${
+              isPassingAvg ? 'status-success' : 'status-danger'
+            }`}
+            title={`Average: ${avgMarksFormatted}`}
+          >
+            {avgMarksFormatted}
+          </span>
+        ) : (
+          <span className="text-sm text-muted-foreground">—</span>
+        )}
+      </td>
 
       <td className="px-6 py-3 text-right">
         <div className="flex items-center justify-end gap-2">

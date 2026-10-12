@@ -30,7 +30,9 @@ export function AdminBatchesTab({ batches }: AdminBatchesTabProps) {
           <tbody className="divide-y divide-border/60">
             {batches.map((b) => (
               <tr key={b.cohort} className="hover:bg-muted/20 transition-colors">
-                <td className="py-3.5 px-4 font-bold text-foreground">Batch {b.cohort}</td>
+                <td className="py-3.5 px-4 font-bold text-foreground">
+                  {b.cohort.toLowerCase().startsWith('batch') ? b.cohort : `Batch ${b.cohort}`}
+                </td>
                 <td className="py-3.5 px-4 text-center font-bold text-foreground">
                   {b.totalStudents}
                 </td>

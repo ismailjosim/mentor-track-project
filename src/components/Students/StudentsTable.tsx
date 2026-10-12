@@ -25,8 +25,8 @@ const columns: ColumnDef<StudentWithRelations>[] = [
   { id: 'progress', header: 'Progress', accessorKey: 'lastCompletedAssignment' },
   { id: 'status', header: 'Status', accessorKey: 'currentStatus' },
   { id: 'group', header: 'Group', accessorKey: 'mentorshipJoiningStatus' },
-  { id: 'division', header: 'Division', accessorKey: 'division' },
-  { id: 'device', header: 'Device', accessorKey: 'workingDevice' },
+  { id: 'lastSubmitted', header: 'Last Submitted' },
+  { id: 'avgMarks', header: 'Avg Marks' },
   { id: 'action', header: 'Action' },
 ];
 

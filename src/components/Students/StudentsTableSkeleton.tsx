@@ -30,10 +30,10 @@ export function StudentsTableSkeleton() {
             <div className="h-5 w-16 rounded bg-muted animate-pulse" />
           </td>
           <td className="px-4 py-3">
-            <div className="h-4 w-20 rounded bg-muted animate-pulse" />
+            <div className="h-5 w-14 rounded bg-muted animate-pulse" />
           </td>
           <td className="px-4 py-3">
-            <div className="h-4 w-16 rounded bg-muted animate-pulse" />
+            <div className="h-5 w-12 rounded bg-muted animate-pulse" />
           </td>
           <td className="px-6 py-3">
             <div className="ml-auto h-8 w-20 rounded bg-muted animate-pulse" />
