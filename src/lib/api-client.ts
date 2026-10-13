@@ -125,7 +125,11 @@ export const studentApi = {
       device?: string;
       group?: string;
       progress?: string;
+      submittedAssignment?: string;
+      notSubmittedAssignment?: string;
       programType?: string;
+      sortBy?: string;
+      sortOrder?: string;
     } = {}
   ) => {
     const params = new URLSearchParams();
@@ -137,18 +141,27 @@ export const studentApi = {
     if (status) params.set('status', status);
     if (filters.cohort) params.set('cohort', filters.cohort);
     if (filters.progress) params.set('progress', filters.progress);
+    if (filters.submittedAssignment)
+      params.set('submittedAssignment', filters.submittedAssignment);
+    if (filters.notSubmittedAssignment)
+      params.set('notSubmittedAssignment', filters.notSubmittedAssignment);
     if (filters.group) params.set('group', filters.group);
     if (filters.device) params.set('device', filters.device);
     if (filters.programType) params.set('programType', filters.programType);
+    if (filters.sortBy) params.set('sortBy', filters.sortBy);
+    if (filters.sortOrder) params.set('sortOrder', filters.sortOrder);
 
     const shouldCache =
       page === 1 &&
       !search &&
       !status &&
       !filters.progress &&
+      !filters.submittedAssignment &&
+      !filters.notSubmittedAssignment &&
       !filters.group &&
       !filters.device &&
-      !filters.programType;
+      !filters.programType &&
+      !filters.sortBy;
 
     return apiClient.get(`/api/students?${params.toString()}`, {
       cacheTags: shouldCache ? [CACHE_TAGS.STUDENT_LIST] : undefined,

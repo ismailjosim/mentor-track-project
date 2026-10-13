@@ -5,12 +5,19 @@ import { getLastAssignmentNumber } from '@/lib/ui-helpers';
 import { StudentsTableFilters } from './StudentsTableFilters';
 import { StudentsTablePagination } from './StudentsTablePagination';
 import { StudentsTableBulkBar } from './StudentsTableBulkBar';
-import { DeleteStudentModal } from './DeleteStudentModal';
 import { BulkDeleteModal } from './BulkDeleteModal';
+import { DeleteConfirmationDialog } from '@/components/shared/DeleteConfirmationDialog';
 import { StudentsTableHeader } from './StudentsTableHeader';
 import { StudentsTableBody } from './StudentsTableBody';
 import { useStudentsTableSelection } from './useStudentsTableSelection';
-import { useReactTable, getCoreRowModel, type ColumnDef } from '@tanstack/react-table';
+import { getStudentsColumns } from './studentsColumns';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  type SortingState,
+  type OnChangeFn,
+} from '@tanstack/react-table';
 import type { StudentWithRelations } from '@/types';
 import {
   type StudentsTableProps,
@@ -19,24 +26,14 @@ import {
   PAGE_SIZE,
 } from './types';
 
-const columns: ColumnDef<StudentWithRelations>[] = [
-  { id: 'select', header: 'Select' },
-  { id: 'student', header: 'Student', accessorKey: 'name' },
-  { id: 'progress', header: 'Progress', accessorKey: 'lastCompletedAssignment' },
-  { id: 'status', header: 'Status', accessorKey: 'currentStatus' },
-  { id: 'group', header: 'Group', accessorKey: 'mentorshipJoiningStatus' },
-  { id: 'lastSubmitted', header: 'Last Submitted' },
-  { id: 'avgMarks', header: 'Avg Marks' },
-  { id: 'action', header: 'Action' },
-];
-
 const defaultLocalFilters: StudentTableFilters = {
   search: '',
   cohort: 'all',
   status: 'all',
   progress: 'all',
+  submittedAssignment: 'all',
+  notSubmittedAssignment: 'none',
   group: 'all',
-  device: 'all',
   programType: 'all',
 };
 
@@ -52,6 +49,8 @@ export function StudentsTable({
   onResetFilters,
   onExportFiltered,
   isExporting = false,
+  sorting: externalSorting,
+  onSortingChange: externalOnSortingChange,
   // Optional legacy props
   search,
   onSearchChange,
@@ -61,15 +60,16 @@ export function StudentsTable({
   onProgressFilterChange,
   groupFilter,
   onGroupFilterChange,
-  deviceFilter,
-  onDeviceFilterChange,
   cohortFilter,
   onCohortFilterChange,
   programFilter,
   onProgramFilterChange,
 }: StudentsTableProps) {
   const [localFilters, setLocalFilters] = useState<StudentTableFilters>(defaultLocalFilters);
+  const [internalSorting, setInternalSorting] = useState<SortingState>([]);
   const [clientPage, setClientPage] = useState(1);
+
+  const sorting = externalSorting ?? internalSorting;
 
   const effectiveFilters: StudentTableFilters = useMemo(
     () => ({
@@ -77,8 +77,10 @@ export function StudentsTable({
       cohort: filters?.cohort ?? cohortFilter ?? localFilters.cohort,
       status: filters?.status ?? statusFilter ?? localFilters.status,
       progress: filters?.progress ?? progressFilter ?? localFilters.progress,
+      submittedAssignment: filters?.submittedAssignment ?? localFilters.submittedAssignment,
+      notSubmittedAssignment:
+        filters?.notSubmittedAssignment ?? localFilters.notSubmittedAssignment,
       group: filters?.group ?? groupFilter ?? localFilters.group,
-      device: filters?.device ?? deviceFilter ?? localFilters.device,
       programType: filters?.programType ?? programFilter ?? localFilters.programType,
     }),
     [
@@ -88,7 +90,6 @@ export function StudentsTable({
       statusFilter,
       progressFilter,
       groupFilter,
-      deviceFilter,
       programFilter,
       localFilters,
     ]
@@ -99,84 +100,108 @@ export function StudentsTable({
     effectiveFilters.cohort !== 'all' ||
     effectiveFilters.status !== 'all' ||
     effectiveFilters.progress !== 'all' ||
+    effectiveFilters.submittedAssignment !== 'all' ||
+    effectiveFilters.notSubmittedAssignment !== 'none' ||
     effectiveFilters.group !== 'all' ||
-    effectiveFilters.device !== 'all' ||
     effectiveFilters.programType !== 'all';
 
   const isServerPaginated = !!onPageChange;
+
+  // Helper to determine if assignment was submitted by student
+  const checkAssignmentSubmitted = (s: StudentWithRelations, assignmentNum: number) => {
+    const found = (s.assignments || []).find(
+      (a) => (a.assignmentNumber ?? (a as unknown as { assignment?: number }).assignment) === assignmentNum
+    );
+    if (found) {
+      return (
+        found.status === 'SUBMITTED' ||
+        found.status === 'COMPLETED' ||
+        (typeof found.marks === 'number' && found.marks > 0)
+      );
+    }
+    const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
+    return lastDone >= assignmentNum;
+  };
 
   const filtered = useMemo(() => {
     if (isServerPaginated) return students;
 
     const q = effectiveFilters.search.toLowerCase().trim();
     const qDigits = q.replace(/\D/g, '');
-    return students
-      .filter((s) => {
-        const sPhoneDigits = (s.phone ?? '').replace(/\D/g, '');
-        const sWhatsappDigits = (s.whatsapp ?? '').replace(/\D/g, '');
-        const matchSearch =
-          !q ||
-          s.name.toLowerCase().includes(q) ||
-          s.email.toLowerCase().includes(q) ||
-          (!!qDigits && (sPhoneDigits.includes(qDigits) || sWhatsappDigits.includes(qDigits)));
 
-        const matchCohort =
-          effectiveFilters.cohort === 'all' || s.cohort === effectiveFilters.cohort;
-        const matchStatus =
-          effectiveFilters.status === 'all' || s.currentStatus === effectiveFilters.status;
+    return students.filter((s) => {
+      const sPhoneDigits = (s.phone ?? '').replace(/\D/g, '');
+      const sWhatsappDigits = (s.whatsapp ?? '').replace(/\D/g, '');
+      const matchSearch =
+        !q ||
+        s.name.toLowerCase().includes(q) ||
+        s.email.toLowerCase().includes(q) ||
+        (!!qDigits && (sPhoneDigits.includes(qDigits) || sWhatsappDigits.includes(qDigits)));
 
-        const compAssignments = (s.assignments || []).filter(
-          (a) =>
-            a.status === 'COMPLETED' ||
-            (typeof a.marks === 'number' && !Number.isNaN(a.marks) && a.marks > 0)
-        );
-        const maxCompletedFromAssignments =
-          compAssignments.length > 0
-            ? Math.max(...compAssignments.map((a) => a.assignmentNumber ?? a.assignment ?? 0))
-            : 0;
-        const lastDone =
-          s.assignments && s.assignments.length > 0
-            ? maxCompletedFromAssignments
-            : getLastAssignmentNumber(s.lastCompletedAssignment);
+      const matchCohort =
+        effectiveFilters.cohort === 'all' || s.cohort === effectiveFilters.cohort;
+      const matchStatus =
+        effectiveFilters.status === 'all' || s.currentStatus === effectiveFilters.status;
 
-        let matchProgress = true;
-        if (effectiveFilters.progress !== 'all' && effectiveFilters.progress !== '') {
-          const pNum = parseInt(effectiveFilters.progress, 10);
-          if (!Number.isNaN(pNum)) {
-            matchProgress = lastDone === pNum;
-          } else if (effectiveFilters.progress === '1-3') {
-            matchProgress = lastDone >= 1 && lastDone <= 3;
-          } else if (effectiveFilters.progress === '4-6') {
-            matchProgress = lastDone >= 4 && lastDone <= 6;
-          } else if (effectiveFilters.progress === '7-9') {
-            matchProgress = lastDone >= 7 && lastDone <= 9;
-          }
+      // Legacy progress filter
+      let matchLegacyProgress = true;
+      if (effectiveFilters.progress !== 'all' && effectiveFilters.progress !== '') {
+        const pNum = parseInt(effectiveFilters.progress, 10);
+        const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
+        if (!Number.isNaN(pNum)) {
+          matchLegacyProgress = lastDone === pNum;
         }
+      }
 
-        const matchGroup =
-          effectiveFilters.group === 'all' ||
-          (effectiveFilters.group === 'in-group' && s.mentorshipJoiningStatus === true) ||
-          (effectiveFilters.group === 'missing' && !s.mentorshipJoiningStatus);
-        const matchDevice =
-          effectiveFilters.device === 'all' || s.workingDevice === effectiveFilters.device;
-        const matchProgram =
-          effectiveFilters.programType === 'all' || s.programType === effectiveFilters.programType;
+      // Specific assignment submitted criteria (e.g. A-06 submitted)
+      let matchSubmitted = true;
+      if (
+        effectiveFilters.submittedAssignment &&
+        effectiveFilters.submittedAssignment !== 'all'
+      ) {
+        const subNum = parseInt(effectiveFilters.submittedAssignment, 10);
+        if (subNum === 0) {
+          const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
+          matchSubmitted = lastDone === 0 && (!s.assignments || s.assignments.length === 0);
+        } else if (!Number.isNaN(subNum)) {
+          matchSubmitted = checkAssignmentSubmitted(s, subNum);
+        }
+      }
 
-        return (
-          matchSearch &&
-          matchCohort &&
-          matchStatus &&
-          matchProgress &&
-          matchGroup &&
-          matchDevice &&
-          matchProgram
-        );
-      })
-      .sort((a, b) => {
-        const doneA = getLastAssignmentNumber(a.lastCompletedAssignment);
-        const doneB = getLastAssignmentNumber(b.lastCompletedAssignment);
-        return doneB - doneA;
-      });
+      // Specific assignment NOT submitted criteria (e.g. A-07 NOT submitted)
+      let matchNotSubmitted = true;
+      if (
+        effectiveFilters.notSubmittedAssignment &&
+        effectiveFilters.notSubmittedAssignment !== 'none' &&
+        effectiveFilters.notSubmittedAssignment !== 'all'
+      ) {
+        const notSubNum = parseInt(effectiveFilters.notSubmittedAssignment, 10);
+        if (!Number.isNaN(notSubNum)) {
+          matchNotSubmitted = !checkAssignmentSubmitted(s, notSubNum);
+        }
+      }
+
+      // Mentorship Group criteria
+      const matchGroup =
+        effectiveFilters.group === 'all' ||
+        (effectiveFilters.group === 'in-group' && s.mentorshipJoiningStatus === true) ||
+        (effectiveFilters.group === 'missing' && !s.mentorshipJoiningStatus);
+
+      const matchProgram =
+        effectiveFilters.programType === 'all' ||
+        s.programType === effectiveFilters.programType;
+
+      return (
+        matchSearch &&
+        matchCohort &&
+        matchStatus &&
+        matchLegacyProgress &&
+        matchSubmitted &&
+        matchNotSubmitted &&
+        matchGroup &&
+        matchProgram
+      );
+    });
   }, [students, effectiveFilters, isServerPaginated]);
 
   const clientTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -208,6 +233,17 @@ export function StudentsTable({
     handleConfirmDelete,
   } = useStudentsTableSelection(paginated);
 
+  // Declarative columns matching Health-Care-App style
+  const columns = useMemo(
+    () =>
+      getStudentsColumns({
+        onDeleteClick: (id, name) =>
+          handleDeleteClick({ _id: id, name } as StudentWithRelations),
+        isDeleting,
+      }),
+    [handleDeleteClick, isDeleting]
+  );
+
   const handleFilterChange = (key: StudentFilterKey, value: string) => {
     setClientPage(1);
     handleClearSelection();
@@ -220,7 +256,6 @@ export function StudentsTable({
       if (key === 'status') onStatusFilterChange?.(value);
       if (key === 'progress') onProgressFilterChange?.(value);
       if (key === 'group') onGroupFilterChange?.(value);
-      if (key === 'device') onDeviceFilterChange?.(value);
       if (key === 'programType') onProgramFilterChange?.(value);
     }
   };
@@ -237,7 +272,6 @@ export function StudentsTable({
       onStatusFilterChange?.('all');
       onProgressFilterChange?.('all');
       onGroupFilterChange?.('all');
-      onDeviceFilterChange?.('all');
       onProgramFilterChange?.('all');
     }
   };
@@ -251,14 +285,35 @@ export function StudentsTable({
     handleClearSelection();
   };
 
-  // eslint-disable-next-line react-hooks/incompatible-library
+  const handleSortingChange: OnChangeFn<SortingState> = (updaterOrValue) => {
+    const nextSorting =
+      typeof updaterOrValue === 'function' ? updaterOrValue(sorting) : updaterOrValue;
+    if (externalOnSortingChange) {
+      externalOnSortingChange(nextSorting);
+    } else {
+      setInternalSorting(nextSorting);
+    }
+  };
+
+  // TanStack Table instance with sorting and pagination
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table is not yet memoizable by React Compiler; React Compiler deliberately skips this component
   const table = useReactTable({
     data: paginated,
     columns,
+    state: {
+      sorting,
+    },
+    onSortingChange: handleSortingChange,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
     manualPagination: true,
     pageCount: displayTotalPages,
   });
+
+  // Extract sorted rows from TanStack Table model
+  const sortedStudents = useMemo(() => {
+    return table.getRowModel().rows.map((row) => row.original);
+  }, [table]);
 
   return (
     <div className="bg-background rounded-xl border shadow-sm overflow-hidden">
@@ -288,7 +343,7 @@ export function StudentsTable({
           />
           <StudentsTableBody
             isLoading={isLoading}
-            students={paginated}
+            students={sortedStudents}
             selectedIds={selectedIds}
             isDeleting={isDeleting}
             onDeleteClick={(id, name) =>
@@ -308,13 +363,19 @@ export function StudentsTable({
         onPageChange={handlePageChange}
       />
 
-      {/* Single delete modal */}
-      <DeleteStudentModal
-        isOpen={deleteModal.isOpen}
-        studentName={deleteModal.studentName}
-        isDeleting={isDeleting}
+      {/* Delete Confirmation Dialog matching Health-Care-App pattern */}
+      <DeleteConfirmationDialog
+        open={deleteModal.isOpen}
+        onOpenChange={(open) => !open && setDeleteModal({ isOpen: false })}
         onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteModal({ isOpen: false })}
+        title="Delete Student"
+        itemName={deleteModal.studentName}
+        description={
+          deleteModal.studentName
+            ? `Are you sure you want to delete ${deleteModal.studentName}? This action cannot be undone.`
+            : 'Are you sure you want to delete this student? This action cannot be undone.'
+        }
+        isDeleting={isDeleting}
       />
 
       {/* Bulk delete modal */}

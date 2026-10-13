@@ -17,7 +17,10 @@ export async function GET(request: NextRequest) {
 
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
+    const cohort = searchParams.get('cohort') || '';
     const progress = searchParams.get('progress') || '';
+    const submittedAssignment = searchParams.get('submittedAssignment') || '';
+    const notSubmittedAssignment = searchParams.get('notSubmittedAssignment') || '';
     const group = searchParams.get('group') || '';
     const device = searchParams.get('device') || '';
     const programType = searchParams.get('programType') || '';
@@ -49,6 +52,10 @@ export async function GET(request: NextRequest) {
       filter.currentStatus = status;
     }
 
+    if (cohort && cohort !== 'all') {
+      filter.cohort = cohort.trim().replace(/[^\d]/g, '') || cohort;
+    }
+
     if (progress && progress !== 'all') {
       const progressNumber = parseInt(progress, 10);
 
@@ -67,13 +74,90 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (submittedAssignment && submittedAssignment !== 'all') {
+      const subNum = parseInt(submittedAssignment.replace(/\D/g, ''), 10);
+      if (!Number.isNaN(subNum) && subNum >= 0 && subNum <= 10) {
+        if (subNum === 0) {
+          andConditions.push({
+            $or: [
+              { lastCompletedAssignment: 'None' },
+              { lastCompletedAssignment: '' },
+              { lastCompletedAssignment: null },
+              { lastCompletedAssignment: { $exists: false } },
+            ],
+          });
+        } else {
+          andConditions.push({
+            $or: [
+              {
+                assignments: {
+                  $elemMatch: {
+                    assignmentNumber: subNum,
+                    $or: [
+                      { status: { $in: ['SUBMITTED', 'COMPLETED'] } },
+                      { marks: { $gt: 0 } },
+                    ],
+                  },
+                },
+              },
+              {
+                lastCompletedAssignment: {
+                  $in: Array.from(
+                    { length: 11 - subNum },
+                    (_, i) => `A-${String(subNum + i).padStart(2, '0')}`
+                  ),
+                },
+              },
+            ],
+          });
+        }
+      }
+    }
+
+    if (
+      notSubmittedAssignment &&
+      notSubmittedAssignment !== 'none' &&
+      notSubmittedAssignment !== 'all'
+    ) {
+      const notSubNum = parseInt(notSubmittedAssignment.replace(/\D/g, ''), 10);
+      if (!Number.isNaN(notSubNum) && notSubNum >= 1 && notSubNum <= 10) {
+        andConditions.push({
+          $nor: [
+            {
+              assignments: {
+                $elemMatch: {
+                  assignmentNumber: notSubNum,
+                  $or: [
+                    { status: { $in: ['SUBMITTED', 'COMPLETED'] } },
+                    { marks: { $gt: 0 } },
+                  ],
+                },
+              },
+            },
+            {
+              lastCompletedAssignment: {
+                $in: Array.from(
+                  { length: 11 - notSubNum },
+                  (_, i) => `A-${String(notSubNum + i).padStart(2, '0')}`
+                ),
+              },
+            },
+          ],
+        });
+      }
+    }
+
     if (group === 'in-group') {
       filter.mentorshipJoiningStatus = true;
     }
 
     if (group === 'missing') {
       andConditions.push({
-        $or: [{ mentorshipJoiningStatus: false }, { mentorshipJoiningStatus: { $exists: false } }],
+        $or: [
+          { mentorshipJoiningStatus: false },
+          { mentorshipJoiningStatus: { $exists: false } },
+          { mentorshipJoiningStatus: null },
+        ],
       });
     }
 

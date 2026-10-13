@@ -1,12 +1,14 @@
 import type { StudentWithRelations } from '@/types';
+import type { SortingState } from '@tanstack/react-table';
 
 export interface StudentTableFilters {
   search: string;
   cohort: string;
   status: string;
   progress: string;
+  submittedAssignment: string;
+  notSubmittedAssignment: string;
   group: string;
-  device: string;
   programType: string;
 }
 
@@ -26,6 +28,10 @@ export interface StudentsTableProps {
   onResetFilters?: () => void;
   onExportFiltered?: () => void;
   isExporting?: boolean;
+
+  // Sorting
+  sorting?: SortingState;
+  onSortingChange?: (sorting: SortingState) => void;
 
   // Optional legacy props
   search?: string;
@@ -67,18 +73,80 @@ export const PROGRESS_OPTIONS = [
   })),
 ];
 
+export const SUBMITTED_ASSIGNMENT_OPTIONS = [
+  { label: 'Submitted: Any', value: 'all' },
+  ...Array.from({ length: 10 }, (_, i) => ({
+    label: `A-${String(i + 1).padStart(2, '0')} Submitted`,
+    value: String(i + 1),
+  })),
+  { label: '0 Submissions (None)', value: '0' },
+];
+
+export const NOT_SUBMITTED_ASSIGNMENT_OPTIONS = [
+  { label: 'Not Submitted: None / Any', value: 'none' },
+  ...Array.from({ length: 10 }, (_, i) => ({
+    label: `A-${String(i + 1).padStart(2, '0')} Not Submitted`,
+    value: String(i + 1),
+  })),
+];
+
+export interface FilterPreset {
+  id: string;
+  label: string;
+  submittedAssignment: string;
+  notSubmittedAssignment: string;
+  group: string;
+}
+
+export const FILTER_PRESETS: FilterPreset[] = [
+  {
+    id: 'a6_done_a7_miss',
+    label: 'A-06 Submitted & A-07 Missing',
+    submittedAssignment: '6',
+    notSubmittedAssignment: '7',
+    group: 'all',
+  },
+  {
+    id: 'a6_done_mentor_miss',
+    label: 'A-06 Submitted & Mentorship Missing',
+    submittedAssignment: '6',
+    notSubmittedAssignment: 'none',
+    group: 'missing',
+  },
+  {
+    id: 'a5_done_a6_miss',
+    label: 'A-05 Submitted & A-06 Missing',
+    submittedAssignment: '5',
+    notSubmittedAssignment: '6',
+    group: 'all',
+  },
+  {
+    id: 'a7_done_mentor_miss',
+    label: 'A-07 Submitted & Mentorship Missing',
+    submittedAssignment: '7',
+    notSubmittedAssignment: 'none',
+    group: 'missing',
+  },
+  {
+    id: 'all_10_completed',
+    label: '10/10 All Submitted',
+    submittedAssignment: '10',
+    notSubmittedAssignment: 'none',
+    group: 'all',
+  },
+  {
+    id: 'zero_submitted',
+    label: '0/10 No Submissions',
+    submittedAssignment: '0',
+    notSubmittedAssignment: 'none',
+    group: 'all',
+  },
+];
+
 export const GROUP_OPTIONS = [
   { label: 'All Groups', value: 'all' },
   { label: 'In Group', value: 'in-group' },
   { label: 'Missing', value: 'missing' },
-];
-
-export const DEVICE_OPTIONS = [
-  { label: 'All Devices', value: 'all' },
-  { label: 'Laptop', value: 'Laptop' },
-  { label: 'Desktop', value: 'Desktop' },
-  { label: 'Mobile', value: 'Mobile' },
-  { label: 'No Device', value: 'none' },
 ];
 
 export const PROGRAM_OPTIONS = [

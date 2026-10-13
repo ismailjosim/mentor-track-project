@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || '';
     const cohort = searchParams.get('cohort') || '';
     const progress = searchParams.get('progress') || '';
+    const submittedAssignment = searchParams.get('submittedAssignment') || '';
+    const notSubmittedAssignment = searchParams.get('notSubmittedAssignment') || '';
     const group = searchParams.get('group') || '';
     const device = searchParams.get('device') || '';
     const programType = searchParams.get('programType') || '';
@@ -97,13 +99,92 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Filter by specific submitted assignment (e.g. Assignment 6 submitted)
+    if (submittedAssignment && submittedAssignment !== 'all') {
+      const subNum = parseInt(submittedAssignment.replace(/\D/g, ''), 10);
+      if (!Number.isNaN(subNum) && subNum >= 0 && subNum <= 10) {
+        if (subNum === 0) {
+          andConditions.push({
+            $or: [
+              { lastCompletedAssignment: 'None' },
+              { lastCompletedAssignment: '' },
+              { lastCompletedAssignment: null },
+              { lastCompletedAssignment: { $exists: false } },
+            ],
+          });
+        } else {
+          andConditions.push({
+            $or: [
+              {
+                assignments: {
+                  $elemMatch: {
+                    assignmentNumber: subNum,
+                    $or: [
+                      { status: { $in: ['SUBMITTED', 'COMPLETED'] } },
+                      { marks: { $gt: 0 } },
+                    ],
+                  },
+                },
+              },
+              {
+                lastCompletedAssignment: {
+                  $in: Array.from(
+                    { length: 11 - subNum },
+                    (_, i) => `A-${String(subNum + i).padStart(2, '0')}`
+                  ),
+                },
+              },
+            ],
+          });
+        }
+      }
+    }
+
+    // Filter by specific NOT submitted assignment (e.g. Assignment 7 NOT submitted)
+    if (
+      notSubmittedAssignment &&
+      notSubmittedAssignment !== 'none' &&
+      notSubmittedAssignment !== 'all'
+    ) {
+      const notSubNum = parseInt(notSubmittedAssignment.replace(/\D/g, ''), 10);
+      if (!Number.isNaN(notSubNum) && notSubNum >= 1 && notSubNum <= 10) {
+        andConditions.push({
+          $nor: [
+            {
+              assignments: {
+                $elemMatch: {
+                  assignmentNumber: notSubNum,
+                  $or: [
+                    { status: { $in: ['SUBMITTED', 'COMPLETED'] } },
+                    { marks: { $gt: 0 } },
+                  ],
+                },
+              },
+            },
+            {
+              lastCompletedAssignment: {
+                $in: Array.from(
+                  { length: 11 - notSubNum },
+                  (_, i) => `A-${String(notSubNum + i).padStart(2, '0')}`
+                ),
+              },
+            },
+          ],
+        });
+      }
+    }
+
     if (group === 'in-group') {
       filter.mentorshipJoiningStatus = true;
     }
 
     if (group === 'missing') {
       andConditions.push({
-        $or: [{ mentorshipJoiningStatus: false }, { mentorshipJoiningStatus: { $exists: false } }],
+        $or: [
+          { mentorshipJoiningStatus: false },
+          { mentorshipJoiningStatus: { $exists: false } },
+          { mentorshipJoiningStatus: null },
+        ],
       });
     }
 
@@ -127,9 +208,23 @@ export async function GET(request: NextRequest) {
       filter.$and = andConditions;
     }
 
-    // Validate sortBy field
-    const allowedSortFields = ['name', 'createdAt', 'lastContactedAt', 'lastCompletedAssignment'];
-    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'name';
+    // Expanded sortBy field mapping
+    const sortFieldMap: Record<string, string> = {
+      name: 'name',
+      student: 'name',
+      progress: 'lastCompletedAssignment',
+      lastCompletedAssignment: 'lastCompletedAssignment',
+      status: 'currentStatus',
+      currentStatus: 'currentStatus',
+      group: 'mentorshipJoiningStatus',
+      mentorshipJoiningStatus: 'mentorshipJoiningStatus',
+      lastSubmitted: 'lastCompletedAssignment',
+      avgMarks: 'scicMarks',
+      scicMarks: 'scicMarks',
+      createdAt: 'createdAt',
+      lastContactedAt: 'lastContactedAt',
+    };
+    const sortField = sortFieldMap[sortBy] || 'name';
 
     const sortObj: any = { [sortField]: sortOrder };
 
@@ -148,15 +243,15 @@ export async function GET(request: NextRequest) {
     const lastCalls =
       studentIds.length > 0
         ? await CallLog.aggregate([
-            { $match: { studentId: { $in: studentIds }, ownerId: userId } },
-            { $sort: { date: -1 } },
-            {
-              $group: {
-                _id: '$studentId',
-                lastCallDate: { $first: '$date' },
-              },
+          { $match: { studentId: { $in: studentIds }, ownerId: userId } },
+          { $sort: { date: -1 } },
+          {
+            $group: {
+              _id: '$studentId',
+              lastCallDate: { $first: '$date' },
             },
-          ])
+          },
+        ])
         : [];
 
     const callMap = new Map<string, string | Date>();

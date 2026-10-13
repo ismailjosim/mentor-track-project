@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, FileUp, Plus, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import type { SortingState } from '@tanstack/react-table';
 import { StudentsTable } from '@/components/Students/StudentsTable';
 import { StudentAnalysisModal } from './StudentAnalysisModal';
 import { StudentAnalysisPanel } from './StudentAnalysisPanel';
@@ -24,6 +25,7 @@ export function StudentsPageClient() {
   const { selectedBatch, setSelectedBatch, batchLabel } = useBatch();
 
   const [page, setPage] = useState(1);
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [filters, setFilters] = useState(() => {
     const urlCohort = searchParams.get('cohort');
     const initialCohort =
@@ -33,8 +35,9 @@ export function StudentsPageClient() {
       cohort: initialCohort,
       status: searchParams.get('status') || '',
       progress: searchParams.get('progress') || '',
+      submittedAssignment: searchParams.get('submittedAssignment') || '',
+      notSubmittedAssignment: searchParams.get('notSubmittedAssignment') || '',
       group: searchParams.get('group') || '',
-      device: searchParams.get('device') || '',
       programType: searchParams.get('programType') || '',
     };
   });
@@ -74,20 +77,43 @@ export function StudentsPageClient() {
     [filters, selectedBatch]
   );
 
+  // Derive sort parameters from TanStack Table sorting state
+  const sortConfig = useMemo(() => {
+    if (sorting.length === 0) return { sortBy: 'name', sortOrder: 'asc' };
+    const current = sorting[0];
+    const idMap: Record<string, string> = {
+      student: 'name',
+      name: 'name',
+      progress: 'progress',
+      status: 'status',
+      group: 'group',
+      lastSubmitted: 'lastSubmitted',
+      avgMarks: 'avgMarks',
+    };
+    return {
+      sortBy: idMap[current.id] || current.id,
+      sortOrder: current.desc ? 'desc' : 'asc',
+    };
+  }, [sorting]);
+
   // TanStack Query for reactive, cached, and background-synchronized student data
   const {
     data: queryResult,
     isLoading: loading,
     error: queryError,
   } = useQuery({
-    queryKey: ['students', page, activeFilters],
+    queryKey: ['students', page, activeFilters, sortConfig],
     queryFn: async () => {
       const response = await studentApi.getAllPaginated(
         page,
         PAGE_SIZE,
         activeFilters.search,
         activeFilters.status,
-        activeFilters
+        {
+          ...activeFilters,
+          sortBy: sortConfig.sortBy,
+          sortOrder: sortConfig.sortOrder,
+        }
       );
       if (response.error) throw new Error(response.error);
       return response;
@@ -134,10 +160,12 @@ export function StudentsPageClient() {
       cohort: '',
       status: '',
       progress: '',
+      submittedAssignment: '',
+      notSubmittedAssignment: '',
       group: '',
-      device: '',
       programType: '',
     });
+    setSorting([]);
     setPage(1);
   };
   const exportFiltered = async () => {
@@ -259,14 +287,17 @@ export function StudentsPageClient() {
         totalStudents={totalStudents}
         onPageChange={setPage}
         isLoading={loading}
+        sorting={sorting}
+        onSortingChange={setSorting}
         filters={{
           ...activeFilters,
           search: searchInput,
           cohort: activeFilters.cohort || 'all',
           status: activeFilters.status || 'all',
           progress: activeFilters.progress || 'all',
+          submittedAssignment: activeFilters.submittedAssignment || 'all',
+          notSubmittedAssignment: activeFilters.notSubmittedAssignment || 'none',
           group: activeFilters.group || 'all',
-          device: activeFilters.device || 'all',
           programType: activeFilters.programType || 'all',
         }}
         onFilterChange={(key, val) => {
@@ -275,7 +306,7 @@ export function StudentsPageClient() {
           } else if (key === 'cohort') {
             handleCohortFilterChange(val);
           } else {
-            updateFilter(key, val);
+            updateFilter(key as keyof typeof filters, val);
           }
         }}
         onResetFilters={resetFilters}
