@@ -14,12 +14,7 @@ interface SidebarNavProps {
   isSuperAdmin: boolean;
 }
 
-export function SidebarNav({
-  isCollapsed,
-  mobileOpen,
-  isAdmin,
-  isSuperAdmin,
-}: SidebarNavProps) {
+export function SidebarNav({ isCollapsed, mobileOpen, isAdmin, isSuperAdmin }: SidebarNavProps) {
   const pathname = usePathname();
 
   return (

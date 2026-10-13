@@ -43,6 +43,23 @@ export interface PaginatedResponse<T> {
 
 // ==================== DASHBOARD TYPES ====================
 
+export interface AssignmentPerformanceStat {
+  assignmentNumber: number;
+  assignmentKey: string;
+  totalStudents: number;
+  submittedCount: number;
+  submissionRate: number;
+  gradedCount: number;
+  gradedRate: number;
+  pendingOrZeroCount: number;
+  pendingOrZeroRate: number;
+  fullMarksCount: number;
+  fullMarksRate: number;
+  above50Count: number;
+  above50Rate: number;
+  avgMarks: number | null;
+}
+
 export interface DashboardStats {
   totalStudents: number;
   activeStudents: number;
@@ -56,6 +73,8 @@ export interface DashboardStats {
   totalFollowUps: number;
   pendingFollowUps: number;
   currentAssignment?: string;
+  mentorshipJoined?: number;
+  mentorshipNotJoined?: number;
 }
 
 // ==================== EXTENDED INTERFACES ====================

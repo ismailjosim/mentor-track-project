@@ -15,9 +15,7 @@ export function AdminStatsCards({ stats }: AdminStatsCardsProps) {
             <Users className="size-4" />
           </div>
         </div>
-        <p className="text-3xl font-extrabold tracking-tight text-foreground">
-          {stats.totalUsers}
-        </p>
+        <p className="text-3xl font-extrabold tracking-tight text-foreground">{stats.totalUsers}</p>
         <p className="text-[11px] text-muted-foreground mt-2">Mentors & administrators</p>
       </div>
 

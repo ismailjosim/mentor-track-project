@@ -47,11 +47,7 @@ export function StudentsTableHeader({
               <th
                 key={header.id}
                 className={`py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground ${
-                  isStudent
-                    ? 'text-left px-6'
-                    : isAction
-                      ? 'text-right px-6'
-                      : 'text-left px-4'
+                  isStudent ? 'text-left px-6' : isAction ? 'text-right px-6' : 'text-left px-4'
                 }`}
               >
                 {header.isPlaceholder

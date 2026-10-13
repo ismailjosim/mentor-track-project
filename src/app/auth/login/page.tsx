@@ -4,7 +4,8 @@ import { LoginClient } from '@/components/auth/LoginClient';
 
 export const metadata: Metadata = {
   title: 'Sign In | Mentor Track',
-  description: 'Sign in to your Mentor Track workspace to manage students, cohorts, and follow-ups.',
+  description:
+    'Sign in to your Mentor Track workspace to manage students, cohorts, and follow-ups.',
 };
 
 export default function LoginPage() {

@@ -86,6 +86,7 @@ export async function GET(request: NextRequest) {
           andConditions.push({
             $or: [
               { lastCompletedAssignment: 'None' },
+              { lastCompletedAssignment: '' },
               { lastCompletedAssignment: null },
               { lastCompletedAssignment: { $exists: false } },
             ],

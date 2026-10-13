@@ -14,6 +14,7 @@ import {
 } from './types';
 import { BulkResultSummary } from './BulkResultSummary';
 import { BulkFileUploadZone } from './BulkFileUploadZone';
+import { BulkProgressOverlay } from './BulkProgressOverlay';
 
 interface BulkAssignmentTabProps {
   onSuccess: (matchedCount: number, assignmentLabel: string) => void;
@@ -213,6 +214,18 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
           className="border rounded-md px-3 py-2 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
         />
       </div>
+
+      {processing && (
+        <BulkProgressOverlay
+          isVisible={processing}
+          title={result ? 'Applying Assignment Updates' : 'Parsing & Matching Students'}
+          subtitle={
+            result
+              ? `Updating records for ${result.matched} students in database...`
+              : 'Verifying emails against student roster and extracting scores...'
+          }
+        />
+      )}
 
       {result && (
         <BulkResultSummary

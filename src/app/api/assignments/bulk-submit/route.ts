@@ -166,28 +166,16 @@ export async function POST(request: NextRequest) {
       student.markModified('assignments');
 
       // Update student progress & status
-      if (
-        currentAssignmentNumber &&
-        student.currentStatus !== 'Dropped' &&
-        student.currentStatus !== 'Completed'
-      ) {
-        const { nextStatus, lastCompletedAssignment } = resolveStudentProgress(
-          student,
-          currentAssignmentNumber
-        );
+      const activeAssignment = currentAssignmentNumber || assignmentNumber;
+      const { nextStatus, lastCompletedAssignment } = resolveStudentProgress(
+        student,
+        activeAssignment
+      );
 
+      if (student.currentStatus !== 'Dropped' && student.currentStatus !== 'Completed') {
         student.currentStatus = nextStatus;
-        if (lastCompletedAssignment) {
-          student.lastCompletedAssignment = lastCompletedAssignment;
-        }
-      } else {
-        const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
-        const currentLast = student.lastCompletedAssignment || 'None';
-
-        if (currentLast === 'None' || parseInt(currentLast.split('-')[1], 10) < assignmentNumber) {
-          student.lastCompletedAssignment = assignmentKey;
-        }
       }
+      student.lastCompletedAssignment = lastCompletedAssignment || 'None';
 
       // Save the updated student document
       await student.save();

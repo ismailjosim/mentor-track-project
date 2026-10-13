@@ -11,12 +11,24 @@ export const parseAssignmentNumber = (assignment: string | undefined | null) => 
 };
 
 export const isAssignmentSubmitted = (assignment: any) =>
-  assignment?.status === 'SUBMITTED' || assignment?.status === 'COMPLETED';
+  assignment?.status === 'SUBMITTED' ||
+  assignment?.status === 'COMPLETED' ||
+  (typeof assignment?.marks === 'number' && !Number.isNaN(assignment.marks));
+
+/**
+ * An assignment is completed only if status is COMPLETED or it has marks > 0.
+ * Submitted assignments with 0 marks or pending marks are considered PENDING grading.
+ */
+export const isAssignmentCompleted = (assignment: any) =>
+  assignment?.status === 'COMPLETED' ||
+  (typeof assignment?.marks === 'number' &&
+    !Number.isNaN(assignment.marks) &&
+    assignment.marks > 0);
 
 export const getHighestCompletedAssignment = (assignments: any[] = []) =>
   assignments.reduce((highest, assignment) => {
     if (!assignment?.assignmentNumber) return highest;
-    if (!isAssignmentSubmitted(assignment)) return highest;
+    if (!isAssignmentCompleted(assignment)) return highest;
     return Math.max(highest, assignment.assignmentNumber);
   }, 0);
 
@@ -52,9 +64,7 @@ export const resolveStudentProgress = (student: any, currentAssignmentNumber: nu
         : getStatusFromMissedCount(missedAssignmentCount);
 
   const lastCompletedAssignment =
-    highestCompletedAssignment > 0
-      ? formatAssignmentKey(highestCompletedAssignment)
-      : student?.lastCompletedAssignment || 'None';
+    highestCompletedAssignment > 0 ? formatAssignmentKey(highestCompletedAssignment) : 'None';
 
   return {
     nextStatus,

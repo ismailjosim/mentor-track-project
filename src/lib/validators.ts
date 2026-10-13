@@ -67,9 +67,18 @@ export const UpdateStudentAssignmentSchema = z.object({
 export const BulkAssignmentItemSchema = z.object({
   email: z.string().email('Invalid email'),
   marks: z.number().optional().nullable(),
-  totalMarks: z.union([z.literal(30), z.literal(50), z.literal(60)]).optional().nullable(),
-  tier: z.union([z.literal(30), z.literal(50), z.literal(60)]).optional().nullable(),
-  maxMarks: z.union([z.literal(30), z.literal(50), z.literal(60)]).optional().nullable(),
+  totalMarks: z
+    .union([z.literal(30), z.literal(50), z.literal(60)])
+    .optional()
+    .nullable(),
+  tier: z
+    .union([z.literal(30), z.literal(50), z.literal(60)])
+    .optional()
+    .nullable(),
+  maxMarks: z
+    .union([z.literal(30), z.literal(50), z.literal(60)])
+    .optional()
+    .nullable(),
   name: z.string().optional(),
 });
 

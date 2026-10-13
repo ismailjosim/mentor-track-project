@@ -6,6 +6,7 @@ import { Heart } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { parseEmails, type BulkResult } from './types';
 import { BulkResultSummary } from './BulkResultSummary';
+import { BulkProgressOverlay } from './BulkProgressOverlay';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
@@ -135,6 +136,18 @@ export function BulkMentorshipTab({ onSuccess, onError }: BulkMentorshipTabProps
           className="border border-border rounded-lg px-3 py-2 text-sm font-mono bg-background text-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
         />
       </div>
+
+      {processing && (
+        <BulkProgressOverlay
+          isVisible={processing}
+          title={result ? 'Updating Mentorship Status' : 'Matching Student Emails'}
+          subtitle={
+            result
+              ? `Updating mentorship group joining status for ${result.matched} students...`
+              : 'Verifying student emails in cohort database...'
+          }
+        />
+      )}
 
       {result && (
         <BulkResultSummary

@@ -7,3 +7,5 @@ export * from './AssignmentSubmissionReport';
 export * from './CallRoundsReport';
 export * from './AssignmentWiseCallsReport';
 export * from './CallHistoryReport';
+export * from './MilestoneWeeklyReport';
+export * from './milestone';

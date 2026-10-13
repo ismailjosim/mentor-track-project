@@ -59,7 +59,10 @@ export function parseDeadlineTier(val: any): 30 | 50 | 60 | undefined {
 const AssignmentDataSchema = z.object({
   email: z.string().email('Invalid email format'),
   marks: z.number().optional().nullable(),
-  totalMarks: z.union([z.literal(30), z.literal(50), z.literal(60)]).optional().nullable(),
+  totalMarks: z
+    .union([z.literal(30), z.literal(50), z.literal(60)])
+    .optional()
+    .nullable(),
   name: z.string().optional(),
 });
 

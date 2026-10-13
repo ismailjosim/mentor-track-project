@@ -84,7 +84,8 @@ export function BulkFileUploadZone({ file, onFileSelect, onClearFile }: BulkFile
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 Columns supported: <strong>Name</strong> (optional), <strong>Email</strong>{' '}
-                (required), <strong>Obtained Marks</strong>, <strong>Total Marks</strong> (deadline tier 60/50/30)
+                (required), <strong>Obtained Marks</strong>, <strong>Total Marks</strong> (deadline
+                tier 60/50/30)
               </p>
             </div>
           </div>

@@ -99,30 +99,47 @@ export function AssignmentSubmissionReport({ data }: AssignmentSubmissionReportP
         </ResponsiveContainer>
 
         <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-130 text-sm">
+          <table className="w-full min-w-160 text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground border-b border-border/70">
-                <th className="py-2 pr-4">Assignment</th>
-                <th className="py-2 pr-4">Submitted</th>
-                <th className="py-2 pr-4">Submission Rate</th>
-                <th className="py-2 pr-4">vs Previous (points)</th>
-                <th className="py-2 pr-4">vs Previous (relative)</th>
+                <th className="py-2.5 pr-3">Assignment</th>
+                <th className="py-2.5 pr-3">Submitted</th>
+                <th className="py-2.5 pr-3">100% Marks</th>
+                <th className="py-2.5 pr-3">&gt; 50% Marks</th>
+                <th className="py-2.5 pr-3">Graded (&gt;0)</th>
+                <th className="py-2.5 pr-3">Pending / 0 Marks</th>
+                <th className="py-2.5 pr-3">Avg Marks</th>
+                <th className="py-2.5 pr-3">vs Prev</th>
               </tr>
             </thead>
             <tbody>
               {data.assignments.map((row) => (
-                <tr key={row.assignmentKey} className="border-b border-border/40 last:border-0">
-                  <td className="py-2 pr-4 font-semibold">{row.assignmentKey}</td>
-                  <td className="py-2 pr-4">
-                    {row.submitted} / {row.totalStudents}
+                <tr
+                  key={row.assignmentKey}
+                  className="border-b border-border/40 last:border-0 hover:bg-muted/10 transition-colors"
+                >
+                  <td className="py-2.5 pr-3 font-semibold text-primary">{row.assignmentKey}</td>
+                  <td className="py-2.5 pr-3 font-medium">
+                    {row.submitted}{' '}
+                    <span className="text-xs text-muted-foreground">({row.submissionRate}%)</span>
                   </td>
-                  <td className="py-2 pr-4">{row.submissionRate}%</td>
-                  <td className="py-2 pr-4">
-                    {row.pointDiffVsPrevious === null
-                      ? '-'
-                      : `${row.pointDiffVsPrevious > 0 ? '+' : ''}${row.pointDiffVsPrevious} pts`}
+                  <td className="py-2.5 pr-3 font-medium text-emerald-600 dark:text-emerald-400">
+                    {row.fullMarks ?? 0}{' '}
+                    <span className="text-xs opacity-75">({row.fullMarksRate ?? 0}%)</span>
                   </td>
-                  <td className="py-2 pr-4">
+                  <td className="py-2.5 pr-3 font-medium text-blue-600 dark:text-blue-400">
+                    {row.above50 ?? 0}{' '}
+                    <span className="text-xs opacity-75">({row.above50Rate ?? 0}%)</span>
+                  </td>
+                  <td className="py-2.5 pr-3">{row.graded ?? 0}</td>
+                  <td className="py-2.5 pr-3 font-medium text-amber-600 dark:text-amber-400">
+                    {row.pendingOrZero ?? 0}{' '}
+                    <span className="text-xs opacity-75">({row.pendingOrZeroRate ?? 0}%)</span>
+                  </td>
+                  <td className="py-2.5 pr-3 font-mono text-xs">
+                    {row.avgMarks !== null && row.avgMarks !== undefined ? row.avgMarks : '—'}
+                  </td>
+                  <td className="py-2.5 pr-3">
                     <DiffBadge value={row.relativeChangePercentVsPrevious} />
                   </td>
                 </tr>

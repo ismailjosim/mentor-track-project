@@ -3,8 +3,16 @@ export interface AssignmentSubmissionRow {
   assignmentKey: string;
   submitted: number;
   completed: number;
+  graded?: number;
+  pendingOrZero?: number;
+  fullMarks?: number;
+  above50?: number;
+  avgMarks?: number | null;
   totalStudents: number;
   submissionRate: number;
+  fullMarksRate?: number;
+  above50Rate?: number;
+  pendingOrZeroRate?: number;
   pointDiffVsPrevious: number | null;
   relativeChangePercentVsPrevious: number | null;
 }

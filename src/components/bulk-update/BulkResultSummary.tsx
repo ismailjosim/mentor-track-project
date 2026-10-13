@@ -36,7 +36,7 @@ export function BulkResultSummary({
 
   const hasPerStudentTiers = Boolean(
     result.matchedStudents &&
-      result.matchedStudents.some((s) => s.totalMarks !== undefined && s.totalMarks !== null)
+    result.matchedStudents.some((s) => s.totalMarks !== undefined && s.totalMarks !== null)
   );
 
   return (
@@ -45,9 +45,7 @@ export function BulkResultSummary({
         <p className="text-sm font-semibold">Import Preview & Status Check</p>
         <span className="text-xs text-muted-foreground font-medium">
           Deadline Tier:{' '}
-          <strong>
-            {hasPerStudentTiers ? 'Detected from Sheet' : `${tier} Marks`}
-          </strong>
+          <strong>{hasPerStudentTiers ? 'Detected from Sheet' : `${tier} Marks`}</strong>
           {hasPerStudentTiers && (
             <span className="text-muted-foreground/75 font-normal ml-1">
               (default fallback: {tier})

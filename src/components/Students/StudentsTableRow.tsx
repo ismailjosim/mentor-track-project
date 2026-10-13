@@ -22,7 +22,20 @@ export function StudentsTableRow({
   isSelected = false,
   onToggleSelect,
 }: StudentsTableRowProps) {
-  const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
+  // Calculate true completed assignments (marks > 0 or status COMPLETED)
+  const completedAssignments = (s.assignments || []).filter(
+    (a) =>
+      a.status === 'COMPLETED' ||
+      (typeof a.marks === 'number' && !Number.isNaN(a.marks) && a.marks > 0)
+  );
+  const maxCompletedFromAssignments =
+    completedAssignments.length > 0
+      ? Math.max(...completedAssignments.map((a) => a.assignmentNumber ?? a.assignment ?? 0))
+      : 0;
+  const lastDone =
+    s.assignments && s.assignments.length > 0
+      ? maxCompletedFromAssignments
+      : getLastAssignmentNumber(s.lastCompletedAssignment);
   const pct = lastDone * 10;
 
   // Determine last submitted assignment (student-wise)
@@ -38,8 +51,7 @@ export function StudentsTableRow({
       ? Math.max(...submittedAssignments.map((a) => a.assignmentNumber ?? a.assignment ?? 0))
       : 0;
   const bestLastNum = Math.max(maxFromAssignments, lastDone);
-  const lastSubmitted =
-    bestLastNum > 0 ? `A-${String(bestLastNum).padStart(2, '0')}` : '—';
+  const lastSubmitted = bestLastNum > 0 ? `A-${String(bestLastNum).padStart(2, '0')}` : '—';
 
   // Calculate average marks across graded assignments
   const gradedAssignments = (s.assignments || []).filter(
@@ -52,14 +64,10 @@ export function StudentsTableRow({
   if (gradedAssignments.length > 0) {
     const totalMarks = gradedAssignments.reduce((sum, a) => sum + (a.marks || 0), 0);
     avgMarks = totalMarks / gradedAssignments.length;
-    avgMarksFormatted = Number.isInteger(avgMarks)
-      ? String(avgMarks)
-      : avgMarks.toFixed(1);
+    avgMarksFormatted = Number.isInteger(avgMarks) ? String(avgMarks) : avgMarks.toFixed(1);
   } else if (typeof s.scicMarks === 'number' && !Number.isNaN(s.scicMarks)) {
     avgMarks = s.scicMarks;
-    avgMarksFormatted = Number.isInteger(avgMarks)
-      ? String(avgMarks)
-      : avgMarks.toFixed(1);
+    avgMarksFormatted = Number.isInteger(avgMarks) ? String(avgMarks) : avgMarks.toFixed(1);
   }
 
   const isPassingAvg = avgMarks !== null ? avgMarks >= 48 : false;

@@ -65,20 +65,105 @@ export async function getAssignmentSubmissionReport(ownerId: string, cohort?: st
         $group: {
           _id: null,
           submitted: {
-            $sum: { $cond: [{ $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] }, 1, 0] },
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] },
+                    { $gt: ['$assignments.marks', null] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
           },
           completed: {
             $sum: { $cond: [{ $eq: ['$assignments.status', 'COMPLETED'] }, 1, 0] },
+          },
+          graded: {
+            $sum: { $cond: [{ $gt: ['$assignments.marks', 0] }, 1, 0] },
+          },
+          pendingOrZero: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    {
+                      $or: [
+                        { $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] },
+                        { $gt: ['$assignments.marks', null] },
+                      ],
+                    },
+                    {
+                      $or: [
+                        { $lte: ['$assignments.marks', 0] },
+                        { $eq: ['$assignments.marks', null] },
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          fullMarks: {
+            $sum: {
+              $cond: [
+                {
+                  $gte: ['$assignments.marks', { $ifNull: ['$assignments.maxMarks', 60] }],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          above50: {
+            $sum: {
+              $cond: [
+                {
+                  $gt: [
+                    '$assignments.marks',
+                    { $multiply: [{ $ifNull: ['$assignments.maxMarks', 60] }, 0.5] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          totalMarks: {
+            $sum: {
+              $cond: [{ $gt: ['$assignments.marks', 0] }, '$assignments.marks', 0],
+            },
           },
         },
       },
     ]);
 
+    const stat = result[0] || {
+      submitted: 0,
+      completed: 0,
+      graded: 0,
+      pendingOrZero: 0,
+      fullMarks: 0,
+      above50: 0,
+      totalMarks: 0,
+    };
+
+    const avgMarks = stat.graded > 0 ? Number((stat.totalMarks / stat.graded).toFixed(1)) : null;
+
     rows.push({
       assignmentNumber: i,
       assignmentKey: `A-${String(i).padStart(2, '0')}`,
-      submitted: result[0]?.submitted || 0,
-      completed: result[0]?.completed || 0,
+      submitted: stat.submitted,
+      completed: stat.completed,
+      graded: stat.graded,
+      pendingOrZero: stat.pendingOrZero,
+      fullMarks: stat.fullMarks,
+      above50: stat.above50,
+      avgMarks,
     });
   }
 
@@ -86,6 +171,9 @@ export async function getAssignmentSubmissionReport(ownerId: string, cohort?: st
 
   const withDiff = rows.map((row, index) => {
     const submissionRate = totalStudents > 0 ? (row.submitted / totalStudents) * 100 : 0;
+    const fullMarksRate = row.submitted > 0 ? (row.fullMarks / row.submitted) * 100 : 0;
+    const above50Rate = row.submitted > 0 ? (row.above50 / row.submitted) * 100 : 0;
+    const pendingOrZeroRate = row.submitted > 0 ? (row.pendingOrZero / row.submitted) * 100 : 0;
     const previous = index > 0 ? rows[index - 1] : null;
 
     let pointDiff: number | null = null;
@@ -104,6 +192,9 @@ export async function getAssignmentSubmissionReport(ownerId: string, cohort?: st
       ...row,
       totalStudents,
       submissionRate: Number(submissionRate.toFixed(1)),
+      fullMarksRate: Number(fullMarksRate.toFixed(1)),
+      above50Rate: Number(above50Rate.toFixed(1)),
+      pendingOrZeroRate: Number(pendingOrZeroRate.toFixed(1)),
       pointDiffVsPrevious: pointDiff,
       relativeChangePercentVsPrevious: relativeChangePercent,
     };

@@ -11,8 +11,9 @@ import { CallRoundsReport } from './CallRoundsReport';
 import { AssignmentWiseCallsReport } from './AssignmentWiseCallsReport';
 import { CallHistoryReport } from './CallHistoryReport';
 import { ReportsHeader } from './ReportsHeader';
+import { MilestoneWeeklyReport } from './MilestoneWeeklyReport';
 import type { GeneratedReport } from '@/types/reports';
-import { AlertCircle } from 'lucide-react';
+import { TableProperties, BarChart3, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const DEFAULT_SECTIONS = [
@@ -28,6 +29,7 @@ interface GeneratedReportWithCohorts extends GeneratedReport {
 }
 
 export function ReportsClient() {
+  const [activeTab, setActiveTab] = useState<'weekly-milestone' | 'analytics'>('weekly-milestone');
   const [selectedSections, setSelectedSections] = useState<string[]>(DEFAULT_SECTIONS);
   const [onlyMentorshipGroup, setOnlyMentorshipGroup] = useState(false);
   const [selectedCohort, setSelectedCohort] = useState<string>('all');
@@ -193,50 +195,88 @@ export function ReportsClient() {
   const error = generateMutation.error instanceof Error ? generateMutation.error.message : null;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-300">
-      <ReportsHeader hasReport={Boolean(report)} onExport={handleExport} />
+    <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Report Type Navigation Tabs */}
+      <div className="flex border-b border-border/80 gap-4 pb-0">
+        <button
+          type="button"
+          onClick={() => setActiveTab('weekly-milestone')}
+          className={`flex items-center gap-2 pb-3 px-2 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'weekly-milestone'
+              ? 'border-primary text-primary font-bold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <TableProperties className="size-4" />
+          <span>Weekly Milestone Target Sheet</span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+            Weekly Report
+          </span>
+        </button>
 
-      {error && (
-        <div className="flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4">
-          <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
-          <p className="text-sm font-medium text-destructive">{error}</p>
-        </div>
-      )}
+        <button
+          type="button"
+          onClick={() => setActiveTab('analytics')}
+          className={`flex items-center gap-2 pb-3 px-2 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'analytics'
+              ? 'border-primary text-primary font-bold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <BarChart3 className="size-4" />
+          <span>Cohort Analytics &amp; Trend Reports</span>
+        </button>
+      </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-1">
-          <ReportOptionsPanel
-            selectedSections={selectedSections}
-            onToggleSection={toggleSection}
-            onlyMentorshipGroup={onlyMentorshipGroup}
-            onToggleMentorshipGroup={() => setOnlyMentorshipGroup((v) => !v)}
-            selectedCohort={selectedCohort}
-            onSelectCohort={setSelectedCohort}
-            availableCohorts={availableCohorts}
-            onGenerate={handleGenerate}
-            loading={loading}
-          />
-        </div>
+      {activeTab === 'weekly-milestone' ? (
+        <MilestoneWeeklyReport cohort={selectedCohort} />
+      ) : (
+        <div className="space-y-6">
+          <ReportsHeader hasReport={Boolean(report)} onExport={handleExport} />
 
-        <div className="xl:col-span-2 space-y-6">
-          {!report && !loading && (
-            <div className="surface p-12 text-center text-sm text-muted-foreground">
-              Select batch and report sections on the left, then click{' '}
-              <strong>Generate Report</strong>.
+          {error && (
+            <div className="flex items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/10 p-4">
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
+              <p className="text-sm font-medium text-destructive">{error}</p>
             </div>
           )}
 
-          {report?.summary && <CohortSummaryCards data={report.summary} />}
-          {report?.assignmentSubmission && (
-            <AssignmentSubmissionReport data={report.assignmentSubmission} />
-          )}
-          {report?.callHistory && <CallHistoryReport data={report.callHistory} />}
-          {report?.callRounds && <CallRoundsReport data={report.callRounds} />}
-          {report?.assignmentWiseCalls && (
-            <AssignmentWiseCallsReport data={report.assignmentWiseCalls} />
-          )}
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            <div className="xl:col-span-1">
+              <ReportOptionsPanel
+                selectedSections={selectedSections}
+                onToggleSection={toggleSection}
+                onlyMentorshipGroup={onlyMentorshipGroup}
+                onToggleMentorshipGroup={() => setOnlyMentorshipGroup((v) => !v)}
+                selectedCohort={selectedCohort}
+                onSelectCohort={setSelectedCohort}
+                availableCohorts={availableCohorts}
+                onGenerate={handleGenerate}
+                loading={loading}
+              />
+            </div>
+
+            <div className="xl:col-span-2 space-y-6">
+              {!report && !loading && (
+                <div className="surface p-12 text-center text-sm text-muted-foreground">
+                  Select batch and report sections on the left, then click{' '}
+                  <strong>Generate Report</strong>.
+                </div>
+              )}
+
+              {report?.summary && <CohortSummaryCards data={report.summary} />}
+              {report?.assignmentSubmission && (
+                <AssignmentSubmissionReport data={report.assignmentSubmission} />
+              )}
+              {report?.callHistory && <CallHistoryReport data={report.callHistory} />}
+              {report?.callRounds && <CallRoundsReport data={report.callRounds} />}
+              {report?.assignmentWiseCalls && (
+                <AssignmentWiseCallsReport data={report.assignmentWiseCalls} />
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

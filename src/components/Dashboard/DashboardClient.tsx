@@ -13,7 +13,11 @@ import { DashboardHeader } from './DashboardHeader';
 import { CallStatisticsChart } from './CallStatisticsChart';
 import { dashboardApi } from '@/lib/api-client';
 import { AlertCircle } from 'lucide-react';
-import type { DashboardStats as DashboardStatsType, StudentWithRelations } from '@/types';
+import type {
+  AssignmentPerformanceStat,
+  DashboardStats as DashboardStatsType,
+  StudentWithRelations,
+} from '@/types';
 import toast from 'react-hot-toast';
 import { useBatch } from '@/components/providers/BatchProvider';
 import { Button } from '@/components/ui/button';
@@ -23,6 +27,7 @@ export interface DashboardOverview {
   cohort?: string;
   availableCohorts?: string[];
   students: StudentWithRelations[];
+  assignmentStats?: AssignmentPerformanceStat[];
   failingStudents: StudentWithRelations[];
   failingPagination: { page: number; total: number; pages: number };
   callQueue: StudentWithRelations[];
@@ -197,7 +202,9 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
 
       <CallStatisticsChart cohort={selectedCohort} />
 
-      {allStudents.length > 0 && <AssignmentCompletionStats students={allStudents} />}
+      {allStudents.length > 0 && (
+        <AssignmentCompletionStats students={allStudents} stats={overview?.assignmentStats} />
+      )}
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">

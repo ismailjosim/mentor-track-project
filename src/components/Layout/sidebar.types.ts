@@ -2,7 +2,6 @@ import type { ComponentType } from 'react';
 import { LayoutDashboard, Users, RefreshCw, FileBarChart } from 'lucide-react';
 import { PAGE_ROUTES } from '@/lib/constants';
 
-
 export interface NavLinkItem {
   label: string;
   href: string;

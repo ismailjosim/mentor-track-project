@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     const [students, settings, distinctCohorts] = await Promise.all([
       Student.find(studentFilter)
         .select(
-          '_id name email phone cohort currentStatus lastCompletedAssignment assignments lastContactedAt'
+          '_id name email phone cohort currentStatus lastCompletedAssignment assignments lastContactedAt mentorshipJoiningStatus'
         )
         .lean(),
       Settings.findOne({ ownerId: userId }).select('currentAssignment').lean(),
@@ -122,6 +122,88 @@ export async function GET(request: NextRequest) {
       return true;
     }).length;
 
+    const mentorshipJoined = students.filter(
+      (student: any) => student.mentorshipJoiningStatus === true
+    ).length;
+    const mentorshipNotJoined = students.length - mentorshipJoined;
+
+    // Detailed assignment performance stats for A-01..A-10
+    const totalStudentsCount = students.length;
+    const assignmentStats = Array.from({ length: 10 }, (_, idx) => {
+      const assignmentNumber = idx + 1;
+      const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
+
+      let submittedCount = 0;
+      let gradedCount = 0;
+      let fullMarksCount = 0;
+      let above50Count = 0;
+      let pendingOrZeroCount = 0;
+      let totalMarksSum = 0;
+
+      for (const student of students as any[]) {
+        const a = student.assignments?.find(
+          (item: any) => item.assignmentNumber === assignmentNumber
+        );
+        if (!a) continue;
+
+        const isSub =
+          a.status === 'SUBMITTED' ||
+          a.status === 'COMPLETED' ||
+          (typeof a.marks === 'number' && !Number.isNaN(a.marks));
+
+        if (!isSub) continue;
+
+        submittedCount++;
+        const marks = typeof a.marks === 'number' && !Number.isNaN(a.marks) ? a.marks : undefined;
+        const maxMarks = a.maxMarks || 60;
+
+        if (marks === undefined || marks <= 0) {
+          // Submitted but pending grading or 0 marks
+          pendingOrZeroCount++;
+        } else {
+          gradedCount++;
+          totalMarksSum += marks;
+          if (marks >= maxMarks) {
+            fullMarksCount++;
+          }
+          if (marks > maxMarks * 0.5) {
+            above50Count++;
+          }
+        }
+      }
+
+      const submissionRate =
+        totalStudentsCount > 0
+          ? Number(((submittedCount / totalStudentsCount) * 100).toFixed(1))
+          : 0;
+      const fullMarksRate =
+        submittedCount > 0 ? Number(((fullMarksCount / submittedCount) * 100).toFixed(1)) : 0;
+      const above50Rate =
+        submittedCount > 0 ? Number(((above50Count / submittedCount) * 100).toFixed(1)) : 0;
+      const pendingOrZeroRate =
+        submittedCount > 0 ? Number(((pendingOrZeroCount / submittedCount) * 100).toFixed(1)) : 0;
+      const gradedRate =
+        submittedCount > 0 ? Number(((gradedCount / submittedCount) * 100).toFixed(1)) : 0;
+      const avgMarks = gradedCount > 0 ? Number((totalMarksSum / gradedCount).toFixed(1)) : null;
+
+      return {
+        assignmentNumber,
+        assignmentKey,
+        totalStudents: totalStudentsCount,
+        submittedCount,
+        submissionRate,
+        gradedCount,
+        gradedRate,
+        pendingOrZeroCount,
+        pendingOrZeroRate,
+        fullMarksCount,
+        fullMarksRate,
+        above50Count,
+        above50Rate,
+        avgMarks,
+      };
+    });
+
     const stats = {
       totalStudents: students.length,
       activeStudents: students.filter(
@@ -139,6 +221,8 @@ export async function GET(request: NextRequest) {
       totalCallLogs: 0,
       totalFollowUps: callQueue.length,
       pendingFollowUps: callQueue.length,
+      mentorshipJoined,
+      mentorshipNotJoined,
     };
 
     // Trim students down to only what is needed for assignment stats charts
@@ -153,6 +237,7 @@ export async function GET(request: NextRequest) {
         cohort: selectedCohort || 'all',
         availableCohorts,
         students: lightweightStudents,
+        assignmentStats,
         failingStudents: failingStudents.slice(0, PAGE_SIZE),
         failingPagination: {
           page: 1,

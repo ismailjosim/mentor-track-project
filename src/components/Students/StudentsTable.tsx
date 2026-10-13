@@ -125,16 +125,33 @@ export function StudentsTable({
         const matchStatus =
           effectiveFilters.status === 'all' || s.currentStatus === effectiveFilters.status;
 
-        const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
+        const compAssignments = (s.assignments || []).filter(
+          (a) =>
+            a.status === 'COMPLETED' ||
+            (typeof a.marks === 'number' && !Number.isNaN(a.marks) && a.marks > 0)
+        );
+        const maxCompletedFromAssignments =
+          compAssignments.length > 0
+            ? Math.max(...compAssignments.map((a) => a.assignmentNumber ?? a.assignment ?? 0))
+            : 0;
+        const lastDone =
+          s.assignments && s.assignments.length > 0
+            ? maxCompletedFromAssignments
+            : getLastAssignmentNumber(s.lastCompletedAssignment);
+
         let matchProgress = true;
-        if (effectiveFilters.progress === '0') matchProgress = lastDone === 0;
-        else if (effectiveFilters.progress === '1-3')
-          matchProgress = lastDone >= 1 && lastDone <= 3;
-        else if (effectiveFilters.progress === '4-6')
-          matchProgress = lastDone >= 4 && lastDone <= 6;
-        else if (effectiveFilters.progress === '7-9')
-          matchProgress = lastDone >= 7 && lastDone <= 9;
-        else if (effectiveFilters.progress === '10') matchProgress = lastDone === 10;
+        if (effectiveFilters.progress !== 'all' && effectiveFilters.progress !== '') {
+          const pNum = parseInt(effectiveFilters.progress, 10);
+          if (!Number.isNaN(pNum)) {
+            matchProgress = lastDone === pNum;
+          } else if (effectiveFilters.progress === '1-3') {
+            matchProgress = lastDone >= 1 && lastDone <= 3;
+          } else if (effectiveFilters.progress === '4-6') {
+            matchProgress = lastDone >= 4 && lastDone <= 6;
+          } else if (effectiveFilters.progress === '7-9') {
+            matchProgress = lastDone >= 7 && lastDone <= 9;
+          }
+        }
 
         const matchGroup =
           effectiveFilters.group === 'all' ||
@@ -143,8 +160,7 @@ export function StudentsTable({
         const matchDevice =
           effectiveFilters.device === 'all' || s.workingDevice === effectiveFilters.device;
         const matchProgram =
-          effectiveFilters.programType === 'all' ||
-          s.programType === effectiveFilters.programType;
+          effectiveFilters.programType === 'all' || s.programType === effectiveFilters.programType;
 
         return (
           matchSearch &&
@@ -275,7 +291,9 @@ export function StudentsTable({
             students={paginated}
             selectedIds={selectedIds}
             isDeleting={isDeleting}
-            onDeleteClick={(id, name) => handleDeleteClick({ _id: id, name } as StudentWithRelations)}
+            onDeleteClick={(id, name) =>
+              handleDeleteClick({ _id: id, name } as StudentWithRelations)
+            }
             onToggleSelect={handleToggleSelect}
           />
         </table>
