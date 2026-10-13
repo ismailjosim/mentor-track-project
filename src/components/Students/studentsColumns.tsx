@@ -129,9 +129,7 @@ export const getStudentsColumns = ({
           (typeof a.marks === 'number' && !Number.isNaN(a.marks))
       );
       const maxFromAssignments =
-        submitted.length > 0
-          ? Math.max(...submitted.map((a) => a.assignmentNumber ?? 0))
-          : 0;
+        submitted.length > 0 ? Math.max(...submitted.map((a) => a.assignmentNumber ?? 0)) : 0;
       const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
       const bestLastNum = Math.max(maxFromAssignments, lastDone);
       const lastSubmitted = bestLastNum > 0 ? `A-${String(bestLastNum).padStart(2, '0')}` : '—';

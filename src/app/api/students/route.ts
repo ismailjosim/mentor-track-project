@@ -14,7 +14,7 @@ import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
 import { revalidateCacheTags } from '@/lib/server-cache';
 import { CACHE_INVALIDATION_TRIGGERS } from '@/lib/cache';
-import { requireCurrentUserId } from '@/lib/auth-utils';
+import { requireCurrentUserId, getCurrentSession, isSuperAdminEmail } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -42,8 +42,20 @@ export async function GET(request: NextRequest) {
 
     const { skip } = getPaginationParams(page, limit);
 
+    const session = await getCurrentSession();
+    const isSuperAdmin = session?.user && isSuperAdminEmail(session.user.email);
+
     // Build query filter
-    const filter: any = { ownerId: userId };
+    const filter: any = {};
+    if (!isSuperAdmin) {
+      filter.ownerId = userId;
+    } else {
+      // Super-admin: scope to own students if any exist, otherwise allow viewing repository students
+      const ownCount = await Student.countDocuments({ ownerId: userId });
+      if (ownCount > 0) {
+        filter.ownerId = userId;
+      }
+    }
     const andConditions: any[] = [];
 
     if (search && search.trim()) {
@@ -77,7 +89,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (cohort && cohort !== 'all') {
-      filter.cohort = cohort.trim().replace(/[^\d]/g, '') || cohort;
+      const cleaned = cohort.trim().replace(/[^\d]/g, '');
+      if (cleaned) {
+        andConditions.push({
+          $or: [
+            { cohort },
+            { cohort: cleaned },
+            { cohort: `Batch ${cleaned}` },
+            { cohort: new RegExp(`^.*${cleaned}.*$`, 'i') },
+          ],
+        });
+      } else {
+        filter.cohort = cohort;
+      }
     }
 
     if (progress) {
@@ -119,10 +143,7 @@ export async function GET(request: NextRequest) {
                 assignments: {
                   $elemMatch: {
                     assignmentNumber: subNum,
-                    $or: [
-                      { status: { $in: ['SUBMITTED', 'COMPLETED'] } },
-                      { marks: { $gt: 0 } },
-                    ],
+                    $or: [{ status: { $in: ['SUBMITTED', 'COMPLETED'] } }, { marks: { $gt: 0 } }],
                   },
                 },
               },
@@ -154,10 +175,7 @@ export async function GET(request: NextRequest) {
               assignments: {
                 $elemMatch: {
                   assignmentNumber: notSubNum,
-                  $or: [
-                    { status: { $in: ['SUBMITTED', 'COMPLETED'] } },
-                    { marks: { $gt: 0 } },
-                  ],
+                  $or: [{ status: { $in: ['SUBMITTED', 'COMPLETED'] } }, { marks: { $gt: 0 } }],
                 },
               },
             },
@@ -240,18 +258,22 @@ export async function GET(request: NextRequest) {
 
     // Batch enrich students with assignment count and last call date (eliminating N+1 query - Rule 6)
     const studentIds = students.map((s: any) => s._id);
+    const callLogMatch: any = { studentId: { $in: studentIds } };
+    if (filter.ownerId) {
+      callLogMatch.ownerId = userId;
+    }
     const lastCalls =
       studentIds.length > 0
         ? await CallLog.aggregate([
-          { $match: { studentId: { $in: studentIds }, ownerId: userId } },
-          { $sort: { date: -1 } },
-          {
-            $group: {
-              _id: '$studentId',
-              lastCallDate: { $first: '$date' },
+            { $match: callLogMatch },
+            { $sort: { date: -1 } },
+            {
+              $group: {
+                _id: '$studentId',
+                lastCallDate: { $first: '$date' },
+              },
             },
-          },
-        ])
+          ])
         : [];
 
     const callMap = new Map<string, string | Date>();

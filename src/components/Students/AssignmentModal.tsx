@@ -174,7 +174,9 @@ export function AssignmentModal({
             <AssignmentTierSelector currentTier={maxMarks} onTierChange={handleTierChange} />
 
             <div>
-              <label className="text-sm font-medium text-foreground mb-2 block">Update Status</label>
+              <label className="text-sm font-medium text-foreground mb-2 block">
+                Update Status
+              </label>
               <select
                 value={status}
                 onChange={(e) => handleStatusChangeDropdown(e.target.value)}

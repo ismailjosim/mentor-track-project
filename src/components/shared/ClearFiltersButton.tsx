@@ -23,13 +23,7 @@ export function ClearFiltersButton({
   if (activeCount === 0) return null;
 
   return (
-    <Button
-      type="button"
-      variant={variant}
-      size={size}
-      onClick={onClear}
-      className={className}
-    >
+    <Button type="button" variant={variant} size={size} onClick={onClear} className={className}>
       <X className="h-3.5 w-3.5 mr-1" />
       {label}
       {activeCount > 0 && ` (${activeCount})`}

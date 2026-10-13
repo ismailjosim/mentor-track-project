@@ -38,7 +38,9 @@ export function DeleteConfirmationDialog({
           <DialogDescription>
             {description || (
               <>
-                Are you sure you want to delete {itemName ? <strong>{itemName}</strong> : 'this student'}? This action cannot be undone.
+                Are you sure you want to delete{' '}
+                {itemName ? <strong>{itemName}</strong> : 'this student'}? This action cannot be
+                undone.
               </>
             )}
           </DialogDescription>

@@ -138,23 +138,30 @@ export function StudentsPageClient() {
   useEffect(() => {
     const params = new URLSearchParams();
     Object.entries(activeFilters).forEach(([key, value]) => {
-      if (value) params.set(key, String(value));
+      if (value && value !== 'all' && value !== 'none') {
+        params.set(key, String(value));
+      }
     });
-    router.replace(params.toString() ? `/students?${params}` : '/students', { scroll: false });
+    const queryString = params.toString();
+    router.replace(queryString ? `/students?${queryString}` : '/students', { scroll: false });
   }, [activeFilters, router]);
 
   const updateFilter = (key: keyof typeof filters, value: string) => {
-    setFilters((current) => ({ ...current, [key]: value === 'all' ? '' : value }));
+    const normalized = value === 'all' || value === 'none' ? '' : value;
+    setFilters((current) => ({ ...current, [key]: normalized }));
+    if (key === 'cohort') {
+      setSelectedBatch(value === '' ? 'all' : value);
+    }
     setPage(1);
   };
 
   const handleCohortFilterChange = (value: string) => {
     updateFilter('cohort', value);
-    setSelectedBatch(value);
   };
 
   const resetFilters = () => {
     setSearchInput('');
+    setSelectedBatch('all');
     setFilters({
       search: '',
       cohort: '',
@@ -167,6 +174,7 @@ export function StudentsPageClient() {
     });
     setSorting([]);
     setPage(1);
+    router.replace('/students', { scroll: false });
   };
   const exportFiltered = async () => {
     try {

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import Student from '@/models/Student';
 import { connectDB } from '@/lib/mongodb';
 import { generateCallList, exportToExcel, generateExportFilename } from '@/lib/export';
-import { requireCurrentUserId } from '@/lib/auth-utils';
+import { requireCurrentUserId, getCurrentSession, isSuperAdminEmail } from '@/lib/auth-utils';
 import { escapeRegex } from '@/lib/utils';
 import { NextRequest } from 'next/server';
 
@@ -25,7 +25,18 @@ export async function GET(request: NextRequest) {
     const device = searchParams.get('device') || '';
     const programType = searchParams.get('programType') || '';
 
-    const filter: any = { ownerId: userId };
+    const session = await getCurrentSession();
+    const isSuperAdmin = session?.user && isSuperAdminEmail(session.user.email);
+
+    const filter: any = {};
+    if (!isSuperAdmin) {
+      filter.ownerId = userId;
+    } else {
+      const ownCount = await Student.countDocuments({ ownerId: userId });
+      if (ownCount > 0) {
+        filter.ownerId = userId;
+      }
+    }
     const andConditions: any[] = [];
 
     if (search && search.trim()) {
@@ -53,7 +64,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (cohort && cohort !== 'all') {
-      filter.cohort = cohort.trim().replace(/[^\d]/g, '') || cohort;
+      const cleaned = cohort.trim().replace(/[^\d]/g, '');
+      if (cleaned) {
+        andConditions.push({
+          $or: [
+            { cohort },
+            { cohort: cleaned },
+            { cohort: `Batch ${cleaned}` },
+            { cohort: new RegExp(`^.*${cleaned}.*$`, 'i') },
+          ],
+        });
+      } else {
+        filter.cohort = cohort;
+      }
     }
 
     if (progress && progress !== 'all') {
@@ -93,10 +116,7 @@ export async function GET(request: NextRequest) {
                 assignments: {
                   $elemMatch: {
                     assignmentNumber: subNum,
-                    $or: [
-                      { status: { $in: ['SUBMITTED', 'COMPLETED'] } },
-                      { marks: { $gt: 0 } },
-                    ],
+                    $or: [{ status: { $in: ['SUBMITTED', 'COMPLETED'] } }, { marks: { $gt: 0 } }],
                   },
                 },
               },
@@ -127,10 +147,7 @@ export async function GET(request: NextRequest) {
               assignments: {
                 $elemMatch: {
                   assignmentNumber: notSubNum,
-                  $or: [
-                    { status: { $in: ['SUBMITTED', 'COMPLETED'] } },
-                    { marks: { $gt: 0 } },
-                  ],
+                  $or: [{ status: { $in: ['SUBMITTED', 'COMPLETED'] } }, { marks: { $gt: 0 } }],
                 },
               },
             },

@@ -66,11 +66,14 @@ export function StudentsTableFilters({
   const clearCriteria = () => {
     onFilterChange('submittedAssignment', 'all');
     onFilterChange('notSubmittedAssignment', 'none');
+    onFilterChange('group', 'all');
   };
 
   const hasAssignmentCriteria =
-    currentFilters.submittedAssignment !== 'all' ||
-    currentFilters.notSubmittedAssignment !== 'none';
+    (currentFilters.submittedAssignment !== 'all' && currentFilters.submittedAssignment !== '') ||
+    (currentFilters.notSubmittedAssignment !== 'none' &&
+      currentFilters.notSubmittedAssignment !== '') ||
+    (currentFilters.group !== 'all' && currentFilters.group !== '');
 
   return (
     <div className="p-4 sm:p-5 border-b bg-card/40 space-y-3.5">
@@ -102,12 +105,18 @@ export function StudentsTableFilters({
             onClear={onResetFilters}
             activeCount={
               (currentFilters.search ? 1 : 0) +
-              (currentFilters.cohort !== 'all' ? 1 : 0) +
-              (currentFilters.status !== 'all' ? 1 : 0) +
-              (currentFilters.submittedAssignment !== 'all' ? 1 : 0) +
-              (currentFilters.notSubmittedAssignment !== 'none' ? 1 : 0) +
-              (currentFilters.group !== 'all' ? 1 : 0) +
-              (currentFilters.programType !== 'all' ? 1 : 0)
+              (currentFilters.cohort !== 'all' && currentFilters.cohort !== '' ? 1 : 0) +
+              (currentFilters.status !== 'all' && currentFilters.status !== '' ? 1 : 0) +
+              (currentFilters.submittedAssignment !== 'all' &&
+              currentFilters.submittedAssignment !== ''
+                ? 1
+                : 0) +
+              (currentFilters.notSubmittedAssignment !== 'none' &&
+              currentFilters.notSubmittedAssignment !== ''
+                ? 1
+                : 0) +
+              (currentFilters.group !== 'all' && currentFilters.group !== '' ? 1 : 0) +
+              (currentFilters.programType !== 'all' && currentFilters.programType !== '' ? 1 : 0)
             }
             variant="outline"
             className="h-10 gap-1.5 text-xs text-muted-foreground hover:text-foreground rounded-xl cursor-pointer"
@@ -279,7 +288,8 @@ export function StudentsTableFilters({
             )}
             {currentFilters.group !== 'all' && (
               <span className="inline-flex items-center gap-1 bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-md font-semibold">
-                Mentorship: {currentFilters.group === 'missing' ? 'Not Joined (Missing)' : 'In Group'}
+                Mentorship:{' '}
+                {currentFilters.group === 'missing' ? 'Not Joined (Missing)' : 'In Group'}
               </span>
             )}
           </div>

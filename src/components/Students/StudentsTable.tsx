@@ -96,21 +96,25 @@ export function StudentsTable({
   );
 
   const hasActiveFilters =
-    !!effectiveFilters.search ||
-    effectiveFilters.cohort !== 'all' ||
-    effectiveFilters.status !== 'all' ||
-    effectiveFilters.progress !== 'all' ||
-    effectiveFilters.submittedAssignment !== 'all' ||
-    effectiveFilters.notSubmittedAssignment !== 'none' ||
-    effectiveFilters.group !== 'all' ||
-    effectiveFilters.programType !== 'all';
+    Boolean(effectiveFilters.search) ||
+    (effectiveFilters.cohort !== 'all' && effectiveFilters.cohort !== '') ||
+    (effectiveFilters.status !== 'all' && effectiveFilters.status !== '') ||
+    (effectiveFilters.progress !== 'all' && effectiveFilters.progress !== '') ||
+    (effectiveFilters.submittedAssignment !== 'all' &&
+      effectiveFilters.submittedAssignment !== '') ||
+    (effectiveFilters.notSubmittedAssignment !== 'none' &&
+      effectiveFilters.notSubmittedAssignment !== '') ||
+    (effectiveFilters.group !== 'all' && effectiveFilters.group !== '') ||
+    (effectiveFilters.programType !== 'all' && effectiveFilters.programType !== '');
 
   const isServerPaginated = !!onPageChange;
 
   // Helper to determine if assignment was submitted by student
   const checkAssignmentSubmitted = (s: StudentWithRelations, assignmentNum: number) => {
     const found = (s.assignments || []).find(
-      (a) => (a.assignmentNumber ?? (a as unknown as { assignment?: number }).assignment) === assignmentNum
+      (a) =>
+        (a.assignmentNumber ?? (a as unknown as { assignment?: number }).assignment) ===
+        assignmentNum
     );
     if (found) {
       return (
@@ -138,8 +142,7 @@ export function StudentsTable({
         s.email.toLowerCase().includes(q) ||
         (!!qDigits && (sPhoneDigits.includes(qDigits) || sWhatsappDigits.includes(qDigits)));
 
-      const matchCohort =
-        effectiveFilters.cohort === 'all' || s.cohort === effectiveFilters.cohort;
+      const matchCohort = effectiveFilters.cohort === 'all' || s.cohort === effectiveFilters.cohort;
       const matchStatus =
         effectiveFilters.status === 'all' || s.currentStatus === effectiveFilters.status;
 
@@ -155,10 +158,7 @@ export function StudentsTable({
 
       // Specific assignment submitted criteria (e.g. A-06 submitted)
       let matchSubmitted = true;
-      if (
-        effectiveFilters.submittedAssignment &&
-        effectiveFilters.submittedAssignment !== 'all'
-      ) {
+      if (effectiveFilters.submittedAssignment && effectiveFilters.submittedAssignment !== 'all') {
         const subNum = parseInt(effectiveFilters.submittedAssignment, 10);
         if (subNum === 0) {
           const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
@@ -188,8 +188,7 @@ export function StudentsTable({
         (effectiveFilters.group === 'missing' && !s.mentorshipJoiningStatus);
 
       const matchProgram =
-        effectiveFilters.programType === 'all' ||
-        s.programType === effectiveFilters.programType;
+        effectiveFilters.programType === 'all' || s.programType === effectiveFilters.programType;
 
       return (
         matchSearch &&
@@ -237,8 +236,7 @@ export function StudentsTable({
   const columns = useMemo(
     () =>
       getStudentsColumns({
-        onDeleteClick: (id, name) =>
-          handleDeleteClick({ _id: id, name } as StudentWithRelations),
+        onDeleteClick: (id, name) => handleDeleteClick({ _id: id, name } as StudentWithRelations),
         isDeleting,
       }),
     [handleDeleteClick, isDeleting]
@@ -310,10 +308,14 @@ export function StudentsTable({
     pageCount: displayTotalPages,
   });
 
-  // Extract sorted rows from TanStack Table model
+  // Extract sorted rows from TanStack Table model, falling back to paginated data
   const sortedStudents = useMemo(() => {
-    return table.getRowModel().rows.map((row) => row.original);
-  }, [table]);
+    const rows = table.getRowModel().rows;
+    if (rows && rows.length > 0) {
+      return rows.map((row) => row.original);
+    }
+    return paginated;
+  }, [table, paginated]);
 
   return (
     <div className="bg-background rounded-xl border shadow-sm overflow-hidden">

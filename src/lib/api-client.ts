@@ -141,8 +141,7 @@ export const studentApi = {
     if (status) params.set('status', status);
     if (filters.cohort) params.set('cohort', filters.cohort);
     if (filters.progress) params.set('progress', filters.progress);
-    if (filters.submittedAssignment)
-      params.set('submittedAssignment', filters.submittedAssignment);
+    if (filters.submittedAssignment) params.set('submittedAssignment', filters.submittedAssignment);
     if (filters.notSubmittedAssignment)
       params.set('notSubmittedAssignment', filters.notSubmittedAssignment);
     if (filters.group) params.set('group', filters.group);
