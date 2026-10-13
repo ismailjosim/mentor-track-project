@@ -208,7 +208,9 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
-          {allStudents.length > 0 && <SubmissionDistribution students={allStudents} />}
+          {allStudents.length > 0 && (
+            <SubmissionDistribution students={allStudents} stats={overview?.assignmentStats} />
+          )}
 
           <div>
             <div className="mb-4 flex items-center gap-2">

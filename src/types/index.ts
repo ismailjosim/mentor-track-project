@@ -53,6 +53,10 @@ export interface AssignmentPerformanceStat {
   gradedRate: number;
   pendingOrZeroCount: number;
   pendingOrZeroRate: number;
+  zeroMarksCount?: number;
+  zeroMarksRate?: number;
+  pendingCount?: number;
+  pendingRate?: number;
   fullMarksCount: number;
   fullMarksRate: number;
   above50Count: number;

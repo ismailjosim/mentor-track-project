@@ -14,7 +14,7 @@ async function run() {
   let updatedCount = 0;
   for (const s of students) {
     const compAssignments = (s.assignments || []).filter(
-      (a) => a.status === 'COMPLETED' || (typeof a.marks === 'number' && !isNaN(a.marks) && a.marks > 0)
+      (a) => typeof a.marks === 'number' && !isNaN(a.marks) && a.marks > 0
     );
     const highest = compAssignments.reduce((max, a) => Math.max(max, a.assignmentNumber || 0), 0);
     const targetKey = highest === 0 ? 'None' : `A-${String(highest).padStart(2, '0')}`;

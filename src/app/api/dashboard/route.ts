@@ -137,6 +137,8 @@ export async function GET(request: NextRequest) {
       let gradedCount = 0;
       let fullMarksCount = 0;
       let above50Count = 0;
+      let zeroMarksCount = 0;
+      let pendingCount = 0;
       let pendingOrZeroCount = 0;
       let totalMarksSum = 0;
 
@@ -157,8 +159,11 @@ export async function GET(request: NextRequest) {
         const marks = typeof a.marks === 'number' && !Number.isNaN(a.marks) ? a.marks : undefined;
         const maxMarks = a.maxMarks || 60;
 
-        if (marks === undefined || marks <= 0) {
-          // Submitted but pending grading or 0 marks
+        if (marks === undefined) {
+          pendingCount++;
+          pendingOrZeroCount++;
+        } else if (marks <= 0) {
+          zeroMarksCount++;
           pendingOrZeroCount++;
         } else {
           gradedCount++;
@@ -180,6 +185,10 @@ export async function GET(request: NextRequest) {
         submittedCount > 0 ? Number(((fullMarksCount / submittedCount) * 100).toFixed(1)) : 0;
       const above50Rate =
         submittedCount > 0 ? Number(((above50Count / submittedCount) * 100).toFixed(1)) : 0;
+      const zeroMarksRate =
+        submittedCount > 0 ? Number(((zeroMarksCount / submittedCount) * 100).toFixed(1)) : 0;
+      const pendingRate =
+        submittedCount > 0 ? Number(((pendingCount / submittedCount) * 100).toFixed(1)) : 0;
       const pendingOrZeroRate =
         submittedCount > 0 ? Number(((pendingOrZeroCount / submittedCount) * 100).toFixed(1)) : 0;
       const gradedRate =
@@ -194,6 +203,10 @@ export async function GET(request: NextRequest) {
         submissionRate,
         gradedCount,
         gradedRate,
+        zeroMarksCount,
+        zeroMarksRate,
+        pendingCount,
+        pendingRate,
         pendingOrZeroCount,
         pendingOrZeroRate,
         fullMarksCount,

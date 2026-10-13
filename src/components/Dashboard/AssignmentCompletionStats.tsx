@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { StudentWithRelations, AssignmentPerformanceStat } from '@/types';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
-import { CheckCircle2, Clock, Award, TableProperties, LayoutGrid, TrendingUp } from 'lucide-react';
+import { CheckCircle2, Clock, Award, TableProperties, LayoutGrid } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface AssignmentCompletionStatsProps {
@@ -105,20 +105,20 @@ export function AssignmentCompletionStats({
                     </span>
                   </div>
 
-                  {/* Primary highlight: Submitted & Rate */}
+                  {/* Primary highlight: >50% Marks count & rate */}
                   <div className="mb-3">
                     <div className="flex items-baseline justify-between">
                       <p className="text-2xl font-bold tracking-tight text-foreground">
-                        {item.submittedCount}
+                        {item.above50Count}
                       </p>
-                      <span className="text-xs font-bold text-primary">
-                        {item.submissionRate}% rate
+                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                        {item.above50Rate}% (&gt;50%)
                       </span>
                     </div>
                     <div className="w-full bg-muted/60 h-1.5 rounded-full overflow-hidden mt-1.5">
                       <div
-                        className="bg-primary h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, item.submissionRate)}%` }}
+                        className="bg-blue-600 dark:bg-blue-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, item.above50Rate)}%` }}
                       />
                     </div>
                   </div>
@@ -136,18 +136,7 @@ export function AssignmentCompletionStats({
                       </span>
                     </div>
 
-                    {/* >50% Marks */}
-                    <div className="flex items-center justify-between py-0.5">
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <TrendingUp className="size-3 text-blue-500" />
-                        <span>&gt; 50% Marks</span>
-                      </span>
-                      <span className="font-semibold text-blue-600 dark:text-blue-400">
-                        {item.above50Count} ({item.above50Rate}%)
-                      </span>
-                    </div>
-
-                    {/* Graded */}
+                    {/* Graded (>0) */}
                     <div className="flex items-center justify-between py-0.5">
                       <span className="flex items-center gap-1.5 text-muted-foreground">
                         <CheckCircle2 className="size-3 text-teal-500" />
@@ -158,14 +147,26 @@ export function AssignmentCompletionStats({
                       </span>
                     </div>
 
-                    {/* Pending or 0 Marks */}
+                    {/* 0 Marks */}
+                    <div className="flex items-center justify-between py-0.5">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Clock className="size-3 text-rose-500" />
+                        <span>0 Marks</span>
+                      </span>
+                      <span className="font-semibold text-rose-600 dark:text-rose-400">
+                        {item.zeroMarksCount ?? 0} ({item.zeroMarksRate ?? 0}%)
+                      </span>
+                    </div>
+
+                    {/* Pending Grading */}
                     <div className="flex items-center justify-between py-0.5">
                       <span className="flex items-center gap-1.5 text-muted-foreground">
                         <Clock className="size-3 text-amber-500" />
-                        <span>Pending / 0</span>
+                        <span>Pending</span>
                       </span>
                       <span className="font-semibold text-amber-600 dark:text-amber-400">
-                        {item.pendingOrZeroCount} ({item.pendingOrZeroRate}%)
+                        {item.pendingCount ?? item.pendingOrZeroCount - (item.zeroMarksCount || 0)}{' '}
+                        ({item.pendingRate ?? item.pendingOrZeroRate}%)
                       </span>
                     </div>
 
@@ -187,53 +188,43 @@ export function AssignmentCompletionStats({
               <thead className="bg-muted/40 border-b border-border/70">
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="py-3 px-4 font-bold">Assignment</th>
+                  <th className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">
+                    &gt; 50% Marks
+                  </th>
                   <th className="py-3 px-4 font-bold">Total Submitted</th>
                   <th className="py-3 px-4 font-bold text-emerald-600 dark:text-emerald-400">
                     100% Marks
                   </th>
-                  <th className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">
-                    &gt; 50% Marks
-                  </th>
                   <th className="py-3 px-4 font-bold">Graded (&gt;0)</th>
+                  <th className="py-3 px-4 font-bold text-rose-600 dark:text-rose-400">0 Marks</th>
                   <th className="py-3 px-4 font-bold text-amber-600 dark:text-amber-400">
-                    Pending / 0 Marks
+                    Pending
                   </th>
                   <th className="py-3 px-4 font-bold">Avg Score</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/40">
+              <tbody className="divide-y divide-border/60">
                 {computedStats.map((item) => (
-                  <tr key={item.assignmentNumber} className="hover:bg-muted/15 transition-colors">
+                  <tr key={item.assignmentNumber} className="hover:bg-muted/10 transition-colors">
                     <td className="py-3 px-4 font-bold text-primary">{item.assignmentKey}</td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-baseline gap-1.5 font-medium">
-                        <span>{item.submittedCount}</span>
-                        <span className="text-xs text-muted-foreground">
-                          ({item.submissionRate}%)
-                        </span>
-                      </div>
+                    <td className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">
+                      {item.above50Count} ({item.above50Rate}%)
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-foreground">
+                      {item.submittedCount} ({item.submissionRate}%)
                     </td>
                     <td className="py-3 px-4 font-semibold text-emerald-600 dark:text-emerald-400">
-                      {item.fullMarksCount}{' '}
-                      <span className="text-xs font-normal opacity-80">
-                        ({item.fullMarksRate}%)
-                      </span>
+                      {item.fullMarksCount} ({item.fullMarksRate}%)
                     </td>
-                    <td className="py-3 px-4 font-semibold text-blue-600 dark:text-blue-400">
-                      {item.above50Count}{' '}
-                      <span className="text-xs font-normal opacity-80">({item.above50Rate}%)</span>
+                    <td className="py-3 px-4 font-medium text-foreground">
+                      {item.gradedCount} ({item.gradedRate}%)
                     </td>
-                    <td className="py-3 px-4 font-medium">
-                      {item.gradedCount}{' '}
-                      <span className="text-xs text-muted-foreground font-normal">
-                        ({item.gradedRate}%)
-                      </span>
+                    <td className="py-3 px-4 font-semibold text-rose-600 dark:text-rose-400">
+                      {item.zeroMarksCount ?? 0} ({item.zeroMarksRate ?? 0}%)
                     </td>
                     <td className="py-3 px-4 font-semibold text-amber-600 dark:text-amber-400">
-                      {item.pendingOrZeroCount}{' '}
-                      <span className="text-xs font-normal opacity-80">
-                        ({item.pendingOrZeroRate}%)
-                      </span>
+                      {item.pendingCount ?? item.pendingOrZeroCount - (item.zeroMarksCount || 0)} (
+                      {item.pendingRate ?? item.pendingOrZeroRate}%)
                     </td>
                     <td className="py-3 px-4 font-mono font-medium">
                       {item.avgMarks !== null ? item.avgMarks : '—'}

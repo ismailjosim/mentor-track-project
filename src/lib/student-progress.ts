@@ -20,10 +20,7 @@ export const isAssignmentSubmitted = (assignment: any) =>
  * Submitted assignments with 0 marks or pending marks are considered PENDING grading.
  */
 export const isAssignmentCompleted = (assignment: any) =>
-  assignment?.status === 'COMPLETED' ||
-  (typeof assignment?.marks === 'number' &&
-    !Number.isNaN(assignment.marks) &&
-    assignment.marks > 0);
+  typeof assignment?.marks === 'number' && !Number.isNaN(assignment.marks) && assignment.marks > 0;
 
 export const getHighestCompletedAssignment = (assignments: any[] = []) =>
   assignments.reduce((highest, assignment) => {
