@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireCurrentUserId } from '@/lib/auth-utils';
+import { requireCurrentUserId, getCurrentSession, isSuperAdminEmail } from '@/lib/auth-utils';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import CallLog from '@/models/CallLog';
@@ -30,17 +30,34 @@ export async function GET(request: NextRequest) {
     const selectedCohort =
       rawCohort && rawCohort !== 'all' ? rawCohort.trim().replace(/[^\d]/g, '') : null;
 
+    const session = await getCurrentSession();
+    const isSuperAdmin = session?.user && isSuperAdminEmail(session.user.email);
+
     // Filter base
-    const callLogFilter: Record<string, unknown> = { ownerId: userId };
+    const callLogFilter: Record<string, unknown> = {};
+    if (!isSuperAdmin) {
+      callLogFilter.ownerId = userId;
+    } else {
+      const ownCount = await CallLog.countDocuments({ ownerId: userId });
+      if (ownCount > 0) {
+        callLogFilter.ownerId = userId;
+      }
+    }
 
     if (selectedCohort) {
       const cohortRegex = new RegExp(`^.*${selectedCohort}.*$`, 'i');
+      const studentOwnerFilter = callLogFilter.ownerId ? { ownerId: callLogFilter.ownerId } : {};
       const studentIds = await Student.find({
-        ownerId: userId,
+        ...studentOwnerFilter,
         $or: [{ cohort: selectedCohort }, { cohort: cohortRegex }],
       }).distinct('_id');
       const allStudentIdMatches = [...studentIds, ...studentIds.map((id) => id.toString())];
-      callLogFilter.studentId = { $in: allStudentIdMatches };
+
+      callLogFilter.$or = [
+        { cohort: selectedCohort },
+        { cohort: cohortRegex },
+        { studentId: { $in: allStudentIdMatches } },
+      ];
     }
 
     const now = new Date();

@@ -13,7 +13,10 @@ function loadEnv() {
         if (trimmed && !trimmed.startsWith('#')) {
           const [key, ...vals] = trimmed.split('=');
           if (key && vals.length > 0 && !process.env[key.trim()]) {
-            const val = vals.join('=').trim().replace(/^["']|["']$/g, '');
+            const val = vals
+              .join('=')
+              .trim()
+              .replace(/^["']|["']$/g, '');
             process.env[key.trim()] = val;
           }
         }
@@ -38,9 +41,11 @@ async function run() {
   const studentsColl = mongoose.connection.collection('students');
 
   // Check all students in 'Batch 14'
-  const batch14Students = await studentsColl.find({
-    cohort: { $in: ['Batch 14', 'batch 14', 'Batch Batch 14'] },
-  }).toArray();
+  const batch14Students = await studentsColl
+    .find({
+      cohort: { $in: ['Batch 14', 'batch 14', 'Batch Batch 14'] },
+    })
+    .toArray();
 
   console.log(`Found ${batch14Students.length} students with cohort 'Batch 14'`);
 
@@ -53,7 +58,9 @@ async function run() {
     });
 
     if (duplicateIn14) {
-      console.log(`Student ${s.email} already exists in cohort 14 (id: ${duplicateIn14._id}). Removing duplicate.`);
+      console.log(
+        `Student ${s.email} already exists in cohort 14 (id: ${duplicateIn14._id}). Removing duplicate.`
+      );
       await studentsColl.deleteOne({ _id: s._id });
     } else {
       console.log(`Updating student ${s.name} (${s.email}) cohort from '${s.cohort}' to '14'...`);
@@ -65,9 +72,11 @@ async function run() {
   }
 
   // Also check if any other student has 'Batch ' in their cohort string
-  const otherBatches = await studentsColl.find({
-    cohort: { $regex: /^batch\s+/i },
-  }).toArray();
+  const otherBatches = await studentsColl
+    .find({
+      cohort: { $regex: /^batch\s+/i },
+    })
+    .toArray();
 
   if (otherBatches.length > 0) {
     console.log(`Found ${otherBatches.length} other students with 'Batch ' prefix:`);

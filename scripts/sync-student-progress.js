@@ -20,18 +20,18 @@ async function run() {
     const targetKey = highest === 0 ? 'None' : `A-${String(highest).padStart(2, '0')}`;
 
     if (s.lastCompletedAssignment !== targetKey) {
-      await mongoose.connection.db.collection('students').updateOne(
-        { _id: s._id },
-        { $set: { lastCompletedAssignment: targetKey } }
-      );
+      await mongoose.connection.db
+        .collection('students')
+        .updateOne({ _id: s._id }, { $set: { lastCompletedAssignment: targetKey } });
       updatedCount++;
     }
   }
 
   console.log(`Synced ${updatedCount} students lastCompletedAssignment!`);
-  const finalSummary = await mongoose.connection.db.collection('students').aggregate([
-    { $group: { _id: '$lastCompletedAssignment', count: { $sum: 1 } } }
-  ]).toArray();
+  const finalSummary = await mongoose.connection.db
+    .collection('students')
+    .aggregate([{ $group: { _id: '$lastCompletedAssignment', count: { $sum: 1 } } }])
+    .toArray();
   console.log('New lastCompletedAssignment distribution:', finalSummary);
   process.exit(0);
 }

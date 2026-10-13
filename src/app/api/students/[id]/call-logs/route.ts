@@ -121,7 +121,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const requestBody = { ...body, studentId: id };
     const validatedData = CallLogCreateSchema.parse(requestBody);
 
-    const callLog = new CallLog({ ...validatedData, ownerId: userId });
+    const callLog = new CallLog({
+      ...validatedData,
+      ownerId: userId,
+      cohort: student.cohort || '14',
+    });
     const saved = await callLog.save();
     await saved.populate('studentId');
 

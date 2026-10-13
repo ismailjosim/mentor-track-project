@@ -18,11 +18,7 @@ async function migrate() {
   // Assign cohort: '13' to all students currently in DB
   const result = await studentsColl.updateMany(
     {
-      $or: [
-        { cohort: { $exists: false } },
-        { cohort: null },
-        { cohort: '' },
-      ],
+      $or: [{ cohort: { $exists: false } }, { cohort: null }, { cohort: '' }],
     },
     { $set: { cohort: '13' } }
   );
@@ -33,7 +29,10 @@ async function migrate() {
 
   // Check unique index on ownerId and email
   const indexes = await studentsColl.indexes();
-  console.log('Existing indexes:', indexes.map((i) => ({ name: i.name, key: i.key, unique: i.unique })));
+  console.log(
+    'Existing indexes:',
+    indexes.map((i) => ({ name: i.name, key: i.key, unique: i.unique }))
+  );
 
   const ownerEmailIdx = indexes.find((i) => i.name === 'ownerId_1_email_1');
   if (ownerEmailIdx && ownerEmailIdx.unique) {
@@ -66,10 +65,7 @@ async function migrate() {
   console.log('Created unique index ownerId_1_cohort_1_email_1');
 
   // Also create index for ownerId + cohort
-  await studentsColl.createIndex(
-    { ownerId: 1, cohort: 1 },
-    { name: 'ownerId_1_cohort_1' }
-  );
+  await studentsColl.createIndex({ ownerId: 1, cohort: 1 }, { name: 'ownerId_1_cohort_1' });
   console.log('Created index ownerId_1_cohort_1');
 
   await mongoose.disconnect();

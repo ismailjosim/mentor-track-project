@@ -1,7 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import { generateReport, ReportSection } from '@/lib/report-logic';
-import { requireCurrentUserId } from '@/lib/auth-utils';
+import { requireCurrentUserId, getCurrentSession, isSuperAdminEmail } from '@/lib/auth-utils';
 import Student from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -29,6 +29,16 @@ export async function GET(request: NextRequest) {
     const onlyMentorshipGroup = searchParams.get('onlyMentorshipGroup') === 'true';
     const cohort = searchParams.get('cohort') || undefined;
 
+    const session = await getCurrentSession();
+    const isSuperAdmin = session?.user && isSuperAdminEmail(session.user.email);
+    let effectiveUserId: string | undefined = userId;
+    if (isSuperAdmin) {
+      const ownCount = await Student.countDocuments({ ownerId: userId });
+      if (ownCount === 0) {
+        effectiveUserId = undefined;
+      }
+    }
+
     const requestedSections = sectionsParam
       ? sectionsParam
           .split(',')
@@ -45,12 +55,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const cohortOwnerFilter = effectiveUserId ? { ownerId: effectiveUserId } : {};
     const [report, distinctCohorts] = await Promise.all([
-      generateReport(userId as string, requestedSections, {
+      generateReport(effectiveUserId, requestedSections, {
         onlyMentorshipGroup,
         cohort,
       }),
-      Student.distinct('cohort', { ownerId: userId }),
+      Student.distinct('cohort', cohortOwnerFilter),
     ]);
 
     const availableCohorts = Array.from(

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import mongoose from 'mongoose';
 import { connectDB } from '@/lib/mongodb';
 import {
   createResponse,
@@ -134,9 +135,13 @@ export async function DELETE(
     }
 
     // Cascade delete related documents
+    const matchIds: any[] = [id];
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      matchIds.push(new mongoose.Types.ObjectId(id));
+    }
     await Promise.all([
-      CallLog.deleteMany({ studentId: id, ownerId: userId }),
-      FollowUp.deleteMany({ studentId: id, ownerId: userId }),
+      CallLog.deleteMany({ studentId: { $in: matchIds }, ownerId: userId }),
+      FollowUp.deleteMany({ studentId: { $in: matchIds }, ownerId: userId }),
     ]);
 
     // Invalidate student-related caches

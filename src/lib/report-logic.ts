@@ -17,8 +17,11 @@ export type ReportSection =
 
 const ASSIGNMENT_KEYS = Array.from({ length: 10 }, (_, i) => `A-${String(i + 1).padStart(2, '0')}`);
 
-function buildCohortFilter(ownerId: string, cohort?: string) {
-  const filter: any = { ownerId };
+function buildCohortFilter(ownerId?: string, cohort?: string) {
+  const filter: any = {};
+  if (ownerId) {
+    filter.ownerId = ownerId;
+  }
   if (cohort && cohort !== 'all') {
     const cleaned = cohort.trim().replace(/[^\d]/g, '');
     if (cleaned) {
@@ -34,7 +37,7 @@ function buildCohortFilter(ownerId: string, cohort?: string) {
   return filter;
 }
 
-async function getCohortStudentIds(ownerId: string, cohort?: string) {
+async function getCohortStudentIds(ownerId?: string, cohort?: string) {
   const filter = buildCohortFilter(ownerId, cohort);
   const students = await Student.find(filter).select('_id').lean();
   const stringIds = students.map((s: any) => String(s._id));
@@ -52,7 +55,7 @@ async function getCohortStudentIds(ownerId: string, cohort?: string) {
  * 1) Assignment submission report
  * How many students have submitted each assignment (A-01..A-10)
  */
-export async function getAssignmentSubmissionReport(ownerId: string, cohort?: string) {
+export async function getAssignmentSubmissionReport(ownerId?: string, cohort?: string) {
   const studentMatch = buildCohortFilter(ownerId, cohort);
   const rows: any[] = [];
 
@@ -209,7 +212,7 @@ export async function getAssignmentSubmissionReport(ownerId: string, cohort?: st
  * received at least that many calls.
  */
 export async function getCallRoundsReport(
-  ownerId: string,
+  ownerId?: string,
   onlyMentorshipGroup = false,
   cohort?: string
 ) {
@@ -235,8 +238,11 @@ export async function getCallRoundsReport(
     .map((id) => new mongoose.Types.ObjectId(id));
   const allTargetIds = [...objectIds, ...studentIds];
 
+  const callMatch: any = { studentId: { $in: allTargetIds } };
+  if (ownerId) callMatch.ownerId = ownerId;
+
   const callCounts = await CallLog.aggregate([
-    { $match: { ownerId, studentId: { $in: allTargetIds } } },
+    { $match: callMatch },
     { $group: { _id: { $toString: '$studentId' }, count: { $sum: 1 } } },
   ]);
 
@@ -274,12 +280,22 @@ export async function getCallRoundsReport(
 /**
  * 3) Assignment-wise call volume report
  */
-export async function getAssignmentWiseCallReport(ownerId: string, cohort?: string) {
-  const matchFilter: any = { ownerId };
+export async function getAssignmentWiseCallReport(ownerId?: string, cohort?: string) {
+  const matchFilter: any = {};
+  if (ownerId) matchFilter.ownerId = ownerId;
 
   if (cohort && cohort !== 'all') {
+    const cleaned = cohort.trim().replace(/[^\d]/g, '');
+    const cohortRegex = cleaned
+      ? new RegExp(`^.*${cleaned}.*$`, 'i')
+      : new RegExp(`^.*${cohort}.*$`, 'i');
     const { allIds } = await getCohortStudentIds(ownerId, cohort);
-    matchFilter.studentId = { $in: allIds };
+    matchFilter.$or = [
+      { cohort: cohort },
+      ...(cleaned ? [{ cohort: cleaned }] : []),
+      { cohort: cohortRegex },
+      { studentId: { $in: allIds } },
+    ];
   }
 
   const grouped = await CallLog.aggregate([
@@ -323,7 +339,7 @@ export async function getAssignmentWiseCallReport(ownerId: string, cohort?: stri
  * students who completed all assignments, and submissions per assignment.
  */
 export async function getCohortSummaryReport(
-  ownerId: string,
+  ownerId?: string,
   assignmentNumbers: number[] = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   cohort?: string
 ) {
@@ -369,12 +385,22 @@ export async function getCohortSummaryReport(
 /**
  * 5) Call history weekly and monthly report
  */
-export async function getCallHistoryReport(ownerId: string, cohort?: string) {
-  const callFilter: any = { ownerId };
+export async function getCallHistoryReport(ownerId?: string, cohort?: string) {
+  const callFilter: any = {};
+  if (ownerId) callFilter.ownerId = ownerId;
 
   if (cohort && cohort !== 'all') {
+    const cleaned = cohort.trim().replace(/[^\d]/g, '');
+    const cohortRegex = cleaned
+      ? new RegExp(`^.*${cleaned}.*$`, 'i')
+      : new RegExp(`^.*${cohort}.*$`, 'i');
     const { allIds } = await getCohortStudentIds(ownerId, cohort);
-    callFilter.studentId = { $in: allIds };
+    callFilter.$or = [
+      { cohort: cohort },
+      ...(cleaned ? [{ cohort: cleaned }] : []),
+      { cohort: cohortRegex },
+      { studentId: { $in: allIds } },
+    ];
   }
 
   const now = new Date();
@@ -468,7 +494,7 @@ export async function getCallHistoryReport(ownerId: string, cohort?: string) {
  * Build the requested subset of the report in one call.
  */
 export async function generateReport(
-  ownerId: string,
+  ownerId: string | undefined,
   sections: ReportSection[],
   options: { onlyMentorshipGroup?: boolean; cohort?: string } = {}
 ) {
