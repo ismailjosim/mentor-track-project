@@ -151,4 +151,115 @@ describe('Assignment Bulk Import Parsing & Deadline Tier Detection', () => {
     expect(parsed[0].marks).toBe(30);
     expect(parsed[0].totalMarks).toBe(30);
   });
+
+  it('should parse full table from spreadsheet with Header (Pending, Submitted, Completed rows)', async () => {
+    const { parseAssignmentInput } = await import('../../components/bulk-update/types');
+    const tableData = [
+      'SL\tEmail\tSubmitted At\tObtained Marks\tTotal Marks\tRaw Marks\tStatus\tStudent Name\tRoll',
+      '1\ttanvirn014@gmail.com\t—\t0\t50\t0/50\tPending\t\t',
+      '2\tabdulmajidrakib@gmail.com\tSep 13, 2026 10:15\t0\t30\t0/30\tSubmitted but marks not given\tAbdul Mazid Rakib\tWEB14-1390',
+      '4\tabdmrdhali@gmail.com\tSep 11, 2026 6:15\t60\t60\t60/60\tCompleted\tAbdullah Ikra Bir\tWEB14-0761',
+      '11\talwasia674@gmail.com\tSep 13, 2026 8:20\t54\t60\t54/60\tCompleted\tal wasi ahmed\tWEB14-2666',
+      '20\tasifahemed79@gmail.com\tOct 3, 2026 8:44\t0\t60\t0/60\tSubmitted but marks not given\tAsif Ahemed\tWEB14-2151',
+    ].join('\n');
+
+    const rows = parseAssignmentInput(tableData);
+    expect(rows.length).toBe(5);
+
+    // Row 1: Pending
+    expect(rows[0].email).toBe('tanvirn014@gmail.com');
+    expect(rows[0].status).toBe('PENDING');
+    expect(rows[0].totalMarks).toBe(50);
+    expect(rows[0].marks).toBeUndefined();
+
+    // Row 2: Submitted but marks not given
+    expect(rows[1].email).toBe('abdulmajidrakib@gmail.com');
+    expect(rows[1].status).toBe('SUBMITTED');
+    expect(rows[1].totalMarks).toBe(30);
+    expect(rows[1].marks).toBeUndefined();
+    expect(rows[1].name).toBe('Abdul Mazid Rakib');
+    expect(rows[1].roll).toBe('WEB14-1390');
+    expect(rows[1].submittedAt).toBe('Sep 13, 2026 10:15');
+
+    // Row 4: Completed
+    expect(rows[2].email).toBe('abdmrdhali@gmail.com');
+    expect(rows[2].status).toBe('COMPLETED');
+    expect(rows[2].marks).toBe(60);
+    expect(rows[2].totalMarks).toBe(60);
+    expect(rows[2].name).toBe('Abdullah Ikra Bir');
+    expect(rows[2].roll).toBe('WEB14-0761');
+
+    // Row 11: Completed with partial marks (54/60)
+    expect(rows[3].email).toBe('alwasia674@gmail.com');
+    expect(rows[3].status).toBe('COMPLETED');
+    expect(rows[3].marks).toBe(54);
+    expect(rows[3].totalMarks).toBe(60);
+    expect(rows[3].name).toBe('al wasi ahmed');
+
+    // Row 20: Submitted with tier 60
+    expect(rows[4].email).toBe('asifahemed79@gmail.com');
+    expect(rows[4].status).toBe('SUBMITTED');
+    expect(rows[4].totalMarks).toBe(60);
+    expect(rows[4].name).toBe('Asif Ahemed');
+    expect(rows[4].roll).toBe('WEB14-2151');
+  });
+
+  it('should parse spreadsheet rows without header', async () => {
+    const { parseAssignmentInput } = await import('../../components/bulk-update/types');
+    const tableData = [
+      '1\ttanvirn014@gmail.com\t—\t0\t50\t0/50\tPending\t\t',
+      '4\tabdmrdhali@gmail.com\tSep 11, 2026 6:15\t60\t60\t60/60\tCompleted\tAbdullah Ikra Bir\tWEB14-0761',
+    ].join('\n');
+
+    const rows = parseAssignmentInput(tableData);
+    expect(rows.length).toBe(2);
+    expect(rows[0].email).toBe('tanvirn014@gmail.com');
+    expect(rows[0].status).toBe('PENDING');
+    expect(rows[0].totalMarks).toBe(50);
+
+    expect(rows[1].email).toBe('abdmrdhali@gmail.com');
+    expect(rows[1].status).toBe('COMPLETED');
+    expect(rows[1].marks).toBe(60);
+    expect(rows[1].name).toBe('Abdullah Ikra Bir');
+  });
+
+  it('should validate row objects from CSV/XLSX with Pending and Submitted status', async () => {
+    const { validateAssignmentData } = await import('../file-parser');
+
+    const pendingRow = {
+      SL: 1,
+      Email: 'tanvirn014@gmail.com',
+      'Submitted At': '—',
+      'Obtained Marks': 0,
+      'Total Marks': 50,
+      'Raw Marks': '0/50',
+      Status: 'Pending',
+      'Student Name': '',
+      Roll: '',
+    };
+    const pendingResult = validateAssignmentData(pendingRow);
+    expect(pendingResult.valid).toBe(true);
+    expect(pendingResult.data?.status).toBe('PENDING');
+    expect(pendingResult.data?.totalMarks).toBe(50);
+    expect(pendingResult.data?.marks).toBeUndefined();
+
+    const submittedRow = {
+      SL: 2,
+      Email: 'abdulmajidrakib@gmail.com',
+      'Submitted At': 'Sep 13, 2026 10:15',
+      'Obtained Marks': 0,
+      'Total Marks': 30,
+      'Raw Marks': '0/30',
+      Status: 'Submitted but marks not given',
+      'Student Name': 'Abdul Mazid Rakib',
+      Roll: 'WEB14-1390',
+    };
+    const submittedResult = validateAssignmentData(submittedRow);
+    expect(submittedResult.valid).toBe(true);
+    expect(submittedResult.data?.status).toBe('SUBMITTED');
+    expect(submittedResult.data?.totalMarks).toBe(30);
+    expect(submittedResult.data?.name).toBe('Abdul Mazid Rakib');
+    expect(submittedResult.data?.roll).toBe('WEB14-1390');
+    expect(submittedResult.data?.submittedAt).toBe('Sep 13, 2026 10:15');
+  });
 });

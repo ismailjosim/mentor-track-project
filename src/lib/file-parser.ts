@@ -63,7 +63,10 @@ const AssignmentDataSchema = z.object({
     .union([z.literal(30), z.literal(50), z.literal(60)])
     .optional()
     .nullable(),
-  name: z.string().optional(),
+  name: z.string().optional().nullable(),
+  status: z.enum(['COMPLETED', 'SUBMITTED', 'PENDING']).optional(),
+  submittedAt: z.string().optional().nullable(),
+  roll: z.string().optional().nullable(),
 });
 
 export type AssignmentImportData = z.infer<typeof AssignmentDataSchema>;
@@ -163,6 +166,16 @@ const FIELD_ALIASES: Record<string, string[]> = {
     'total',
   ],
   rawMarks: ['rawmarks', 'rawmark', 'rawscore', 'submissionmarks'],
+  status: ['status', 'submissionstatus', 'assignmentstatus', 'state'],
+  submittedAt: [
+    'submittedat',
+    'submissiondate',
+    'submitteddate',
+    'date',
+    'submissiontime',
+    'submittedtime',
+  ],
+  roll: ['roll', 'rollno', 'studentroll', 'rollnumber', 'id', 'studentid'],
   phone: ['phone', 'phonenumber', 'phoneno', 'mobile', 'mobileno', 'contact', 'cell', 'cellphone'],
   whatsapp: ['whatsapp', 'wa', 'wanumber', 'whatsappnumber', 'whatsappno'],
   cohort: ['cohort', 'batch', 'batchno', 'cohortbatch', 'batchnumber', 'batchname'],
@@ -523,6 +536,10 @@ export function validateAssignmentData(row: any): {
       }
     }
 
+    const rawStatus = getMatchedValue('status');
+    const rawSubmittedAt = getMatchedValue('submittedAt');
+    const rawRoll = getMatchedValue('roll');
+
     const email = normalizeEmail(rawEmail);
     if (!email) {
       return { valid: false, error: 'Email is required' };
@@ -538,11 +555,50 @@ export function validateAssignmentData(row: any): {
 
     const parsedTotalMarks = parseDeadlineTier(rawTotalMarks);
 
+    const cleanSubmittedAt =
+      rawSubmittedAt && rawSubmittedAt !== '—' && rawSubmittedAt !== '-'
+        ? String(rawSubmittedAt).trim()
+        : undefined;
+
+    const rawStatusStr = rawStatus ? String(rawStatus).trim().toLowerCase() : '';
+    let parsedStatus: 'COMPLETED' | 'SUBMITTED' | 'PENDING';
+    if (
+      rawStatusStr.includes('completed') ||
+      rawStatusStr.includes('done') ||
+      rawStatusStr.includes('graded')
+    ) {
+      parsedStatus = 'COMPLETED';
+    } else if (rawStatusStr.includes('submitted')) {
+      parsedStatus = 'SUBMITTED';
+    } else if (
+      rawStatusStr.includes('pending') ||
+      rawStatusStr.includes('not submitted') ||
+      rawStatusStr.includes('missing')
+    ) {
+      parsedStatus = 'PENDING';
+    } else if (parsedMarks !== undefined && parsedMarks !== null && parsedMarks > 0) {
+      parsedStatus = 'COMPLETED';
+    } else if (cleanSubmittedAt) {
+      parsedStatus = 'SUBMITTED';
+    } else if (parsedMarks === 0 && (!cleanSubmittedAt || cleanSubmittedAt === '—')) {
+      parsedStatus = 'PENDING';
+    } else {
+      parsedStatus = 'SUBMITTED';
+    }
+
+    const cleanName =
+      rawName && rawName !== '—' && rawName !== '-' ? String(rawName).trim() : undefined;
+    const cleanRoll =
+      rawRoll && rawRoll !== '—' && rawRoll !== '-' ? String(rawRoll).trim() : undefined;
+
     const normalizedData: AssignmentImportData = {
       email,
-      marks: parsedMarks,
+      marks: parsedStatus === 'COMPLETED' ? parsedMarks : undefined,
       totalMarks: parsedTotalMarks,
-      name: rawName ? String(rawName).trim() : undefined,
+      name: cleanName,
+      status: parsedStatus,
+      submittedAt: cleanSubmittedAt,
+      roll: cleanRoll,
     };
 
     const result = AssignmentDataSchema.parse(normalizedData);

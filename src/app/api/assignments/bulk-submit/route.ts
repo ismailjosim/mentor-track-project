@@ -22,7 +22,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = AssignmentBulkSubmitSchema.parse(body);
 
-    const { assignmentNumber, emails, items, tier = 60, submittedDate } = validatedData;
+    const {
+      assignmentNumber,
+      emails,
+      items,
+      tier = 60,
+      submittedDate,
+      includePending = true,
+    } = validatedData;
     const submissionDate = submittedDate || new Date();
     const settings = await Settings.findOne({ ownerId: userId }).lean();
     const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
@@ -33,6 +40,9 @@ export async function POST(request: NextRequest) {
       marks?: number | null;
       totalMarks?: 30 | 50 | 60 | null;
       name?: string;
+      status?: 'COMPLETED' | 'SUBMITTED' | 'PENDING';
+      submittedAt?: string;
+      roll?: string;
     }> = [];
 
     if (Array.isArray(items) && items.length > 0) {
@@ -49,6 +59,9 @@ export async function POST(request: NextRequest) {
             marks: typeof it.marks === 'number' ? it.marks : undefined,
             totalMarks: parsedTotal,
             name: it.name?.trim(),
+            status: it.status,
+            submittedAt: it.submittedAt?.trim(),
+            roll: it.roll?.trim(),
           };
         });
     } else if (Array.isArray(emails) && emails.length > 0) {
@@ -61,7 +74,15 @@ export async function POST(request: NextRequest) {
 
     const itemMap = new Map<
       string,
-      { email: string; marks?: number | null; totalMarks?: 30 | 50 | 60 | null; name?: string }
+      {
+        email: string;
+        marks?: number | null;
+        totalMarks?: 30 | 50 | 60 | null;
+        name?: string;
+        status?: 'COMPLETED' | 'SUBMITTED' | 'PENDING';
+        submittedAt?: string;
+        roll?: string;
+      }
     >();
     for (const it of targetItems) {
       itemMap.set(it.email, it);
@@ -83,6 +104,7 @@ export async function POST(request: NextRequest) {
     let createdCount = 0;
     let updatedCount = 0;
     let completedCount = 0;
+    let submittedCount = 0;
     let pendingCount = 0;
     const matchedStudents: any[] = [];
 
@@ -98,22 +120,42 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      matchedEmails.add(email);
-
       // Determine student-specific deadline tier: item's totalMarks or fallback to batch tier
       const studentTier: 30 | 50 | 60 = item?.totalMarks || tier;
 
-      // Determine marks & status based on business rules:
-      // If marks > 0: status is COMPLETED with assigned marks (capped at studentTier maxMarks)
-      // If marks <= 0 (e.g. 0, -2, -4) or not provided: status is SUBMITTED (pending marks)
-      const hasPositiveMarks = item?.marks !== undefined && item?.marks !== null && item.marks > 0;
-      const status = hasPositiveMarks ? 'COMPLETED' : 'SUBMITTED';
-      const marks = hasPositiveMarks ? Math.min(studentTier, Math.max(0, item.marks!)) : undefined;
+      let status: 'COMPLETED' | 'SUBMITTED' | 'PENDING';
+      if (item?.status) {
+        status = item.status;
+      } else {
+        const hasPositiveMarks =
+          item?.marks !== undefined && item?.marks !== null && item.marks > 0;
+        status = hasPositiveMarks ? 'COMPLETED' : 'SUBMITTED';
+      }
 
+      // Skip pending if includePending is explicitly false
+      if (status === 'PENDING' && !includePending) {
+        continue;
+      }
+
+      matchedEmails.add(email);
+
+      let marks: number | undefined = undefined;
       if (status === 'COMPLETED') {
+        const rawMark = typeof item?.marks === 'number' ? item.marks : 0;
+        marks = Math.min(studentTier, Math.max(0, rawMark));
         completedCount++;
+      } else if (status === 'SUBMITTED') {
+        submittedCount++;
       } else {
         pendingCount++;
+      }
+
+      let itemDate = submissionDate;
+      if (item?.submittedAt) {
+        const parsed = new Date(item.submittedAt);
+        if (!Number.isNaN(parsed.getTime())) {
+          itemDate = parsed;
+        }
       }
 
       matchedStudents.push({
@@ -139,7 +181,7 @@ export async function POST(request: NextRequest) {
         assignmentNumber,
         status,
         maxMarks: studentTier,
-        date: submissionDate,
+        date: itemDate,
       };
 
       if (marks !== undefined) {
@@ -188,6 +230,7 @@ export async function POST(request: NextRequest) {
       created: createdCount,
       updated: updatedCount,
       completed: completedCount,
+      submitted: submittedCount,
       pending: pendingCount,
       tier,
     });
@@ -204,6 +247,7 @@ export async function POST(request: NextRequest) {
       created: createdCount,
       updated: updatedCount,
       completed: completedCount,
+      submitted: submittedCount,
       pending: pendingCount,
       tier,
       total: {

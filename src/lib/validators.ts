@@ -79,7 +79,10 @@ export const BulkAssignmentItemSchema = z.object({
     .union([z.literal(30), z.literal(50), z.literal(60)])
     .optional()
     .nullable(),
-  name: z.string().optional(),
+  name: z.string().optional().nullable(),
+  status: z.enum(['COMPLETED', 'SUBMITTED', 'PENDING']).optional(),
+  submittedAt: z.string().optional().nullable(),
+  roll: z.string().optional().nullable(),
 });
 
 export const BulkAssignmentSubmitSchema = z
@@ -96,6 +99,7 @@ export const BulkAssignmentSubmitSchema = z
       .optional()
       .default(60),
     submittedDate: z.coerce.date().optional(),
+    includePending: z.boolean().optional().default(true),
   })
   .refine(
     (data) => (data.emails && data.emails.length > 0) || (data.items && data.items.length > 0),

@@ -29,17 +29,26 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<BulkResult | null>(null);
   const [currentItems, setCurrentItems] = useState<AssignmentImportRow[]>([]);
+  const [includePending, setIncludePending] = useState(true);
+
+  // Live progress tracking states
+  const [progressPercent, setProgressPercent] = useState<number | null>(null);
+  const [progressCurrent, setProgressCurrent] = useState<number>(0);
+  const [progressTotal, setProgressTotal] = useState<number>(0);
+  const [progressStatusText, setProgressStatusText] = useState<string>('');
 
   const handleProcessAssignment = async () => {
     try {
       setProcessing(true);
+      setProgressPercent(null);
+      setProgressStatusText('Parsing rows and matching students in database...');
       onError(null);
 
       let items: AssignmentImportRow[] = [];
 
       if (file) {
         const fileResult = await processAssignmentImportFile(file);
-        items = fileResult.items;
+        items = fileResult.items as AssignmentImportRow[];
         if (items.length === 0) {
           throw new Error('No valid student email rows found in the uploaded file');
         }
@@ -74,6 +83,7 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
         matchedStudents: data.matched,
         withMarks: data.stats.withMarks,
         pendingMarks: data.stats.pendingMarks,
+        pendingCount: data.stats.pendingCount,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to process file';
@@ -88,31 +98,74 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
     try {
       setProcessing(true);
 
-      const response = await fetch('/api/assignments/bulk-submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assignmentNumber: assignmentNum,
-          items: currentItems,
-          tier,
-        }),
-      });
+      const itemsToSubmit = includePending
+        ? currentItems
+        : currentItems.filter((it) => it.status !== 'PENDING');
 
-      const apiResult = await response.json();
-
-      if (!response.ok) {
-        onError(apiResult.message || 'Failed to submit assignments');
-        toast.error(apiResult.message || 'Failed to submit assignments');
+      if (itemsToSubmit.length === 0) {
+        toast.error('No student records selected to update');
+        setProcessing(false);
         return;
       }
 
-      const matchedCount = result?.matched ?? 0;
+      const totalItems = itemsToSubmit.length;
+      setProgressTotal(totalItems);
+      setProgressCurrent(0);
+      setProgressPercent(0);
+
+      // Process in batches of 20 students to provide real progress updates and avoid timeouts
+      const CHUNK_SIZE = 20;
+      const chunks: AssignmentImportRow[][] = [];
+      for (let i = 0; i < itemsToSubmit.length; i += CHUNK_SIZE) {
+        chunks.push(itemsToSubmit.slice(i, i + CHUNK_SIZE));
+      }
+
+      let completedCount = 0;
+      let submittedCount = 0;
+      let pendingCount = 0;
+      let processedSoFar = 0;
+
+      for (let c = 0; c < chunks.length; c++) {
+        const chunk = chunks[c];
+        const batchNum = c + 1;
+
+        setProgressStatusText(
+          `Updating batch ${batchNum} of ${chunks.length} (${processedSoFar} / ${totalItems})...`
+        );
+
+        const response = await fetch('/api/assignments/bulk-submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            assignmentNumber: assignmentNum,
+            items: chunk,
+            tier,
+            includePending,
+          }),
+        });
+
+        const apiResult = await response.json();
+
+        if (!response.ok) {
+          throw new Error(apiResult.message || `Failed to submit batch ${batchNum}`);
+        }
+
+        completedCount += apiResult.data?.completed ?? 0;
+        submittedCount += apiResult.data?.submitted ?? 0;
+        pendingCount += apiResult.data?.pending ?? 0;
+        processedSoFar += chunk.length;
+
+        const currentPct = Math.min(100, Math.round((processedSoFar / totalItems) * 100));
+        setProgressCurrent(processedSoFar);
+        setProgressPercent(currentPct);
+        setProgressStatusText(`Saved ${processedSoFar} of ${totalItems} students (${currentPct}%)...`);
+      }
+
       const label = ASSIGNMENTS[assignmentNum - 1].label;
-      const completedCount = apiResult.data?.completed ?? 0;
-      const pendingCount = apiResult.data?.pending ?? 0;
+      const matchedCount = processedSoFar;
 
       toast.success(
-        `Successfully updated ${matchedCount} students for ${label} (${completedCount} marked, ${pendingCount} pending)`
+        `Successfully updated ${matchedCount} students for ${label}: ${completedCount} Completed, ${submittedCount} Submitted, ${pendingCount} Pending`
       );
 
       setResult(null);
@@ -126,6 +179,7 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
       toast.error(message);
     } finally {
       setProcessing(false);
+      setProgressPercent(null);
     }
   };
 
@@ -195,7 +249,9 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
         <div className="flex justify-between items-center">
           <label className="text-sm font-semibold">Paste Data / Email List</label>
           <span className="text-xs text-muted-foreground">
-            {file ? 'File loaded above' : 'Auto-detects Name, Email, Obtained Marks, & Total Marks'}
+            {file
+              ? 'File loaded above'
+              : 'Auto-detects SL, Email, Submitted At, Obtained Marks, Total Marks, Status, Student Name, Roll'}
           </span>
         </div>
         <textarea
@@ -208,7 +264,7 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
           placeholder={
             file
               ? 'File is selected above. Click "Process" to match students.'
-              : `ayashaclassroom@gmail.com\t30\t30\naloktalukder1971@gmail.com\t0\t30\nbeyoushoke@gmail.com\t50\t60\nor with raw marks: student@example.com\t30/30\nor paste rows directly from Excel / Google Sheets`
+              : `1\ttanvirn014@gmail.com\t—\t0\t50\t0/50\tPending\t\t\n2\tabdulmajidrakib@gmail.com\tSep 13, 2026 10:15\t0\t30\t0/30\tSubmitted but marks not given\tAbdul Mazid Rakib\tWEB14-1390\n4\tabdmrdhali@gmail.com\tSep 11, 2026 6:15\t60\t60\t60/60\tCompleted\tAbdullah Ikra Bir\tWEB14-0761\nor paste entire table copied from Google Sheets / Excel`
           }
           rows={6}
           className="border rounded-md px-3 py-2 text-sm font-mono bg-background focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none disabled:opacity-50"
@@ -221,31 +277,37 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
           title={result ? 'Applying Assignment Updates' : 'Parsing & Matching Students'}
           subtitle={
             result
-              ? `Updating records for ${result.matched} students in database...`
+              ? `Updating database records for ${progressTotal || result.matched} students...`
               : 'Verifying emails against student roster and extracting scores...'
           }
+          progressPercent={progressPercent}
+          currentCount={progressCurrent}
+          totalCount={progressTotal}
+          statusText={progressStatusText}
         />
       )}
 
-      {result && (
+      {result && !processing && (
         <BulkResultSummary
           result={result}
           processing={processing}
           onCommit={handleCommitAssignment}
           onCancel={() => setResult(null)}
           tier={tier}
+          includePending={includePending}
+          onToggleIncludePending={setIncludePending}
         />
       )}
 
-      {!result && (
+      {!result && !processing && (
         <div className="flex justify-end">
           <button
             onClick={handleProcessAssignment}
             disabled={(!file && parseAssignmentInput(emailsText).length === 0) || processing}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm cursor-pointer"
           >
             <Zap className="w-4 h-4" />
-            {processing ? 'Processing...' : 'Process'}
+            Process
           </button>
         </div>
       )}

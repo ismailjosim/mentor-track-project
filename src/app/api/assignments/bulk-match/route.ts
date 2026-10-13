@@ -20,6 +20,9 @@ export async function POST(request: NextRequest) {
       marks?: number | null;
       totalMarks?: 30 | 50 | 60 | null;
       name?: string;
+      status?: 'COMPLETED' | 'SUBMITTED' | 'PENDING';
+      submittedAt?: string;
+      roll?: string;
     }> = [];
 
     if (Array.isArray(items) && items.length > 0) {
@@ -36,6 +39,9 @@ export async function POST(request: NextRequest) {
             marks: typeof it.marks === 'number' ? it.marks : undefined,
             totalMarks: parsedTotal,
             name: typeof it.name === 'string' ? it.name.trim() : undefined,
+            status: it.status as 'COMPLETED' | 'SUBMITTED' | 'PENDING' | undefined,
+            submittedAt: typeof it.submittedAt === 'string' ? it.submittedAt.trim() : undefined,
+            roll: typeof it.roll === 'string' ? it.roll.trim() : undefined,
           };
         });
     } else if (Array.isArray(emails) && emails.length > 0) {
@@ -54,7 +60,15 @@ export async function POST(request: NextRequest) {
 
     const itemMap = new Map<
       string,
-      { email: string; marks?: number | null; totalMarks?: 30 | 50 | 60 | null; name?: string }
+      {
+        email: string;
+        marks?: number | null;
+        totalMarks?: 30 | 50 | 60 | null;
+        name?: string;
+        status?: 'COMPLETED' | 'SUBMITTED' | 'PENDING';
+        submittedAt?: string;
+        roll?: string;
+      }
     >();
     for (const item of normalizedItems) {
       itemMap.set(item.email, item);
@@ -77,17 +91,26 @@ export async function POST(request: NextRequest) {
       const item = itemMap.get(email);
 
       if (student) {
-        const hasMarks = item?.marks !== undefined && item?.marks !== null;
-        const isCompleted = hasMarks && (item.marks as number) > 0;
+        let targetStatus: 'COMPLETED' | 'SUBMITTED' | 'PENDING';
+        if (item?.status) {
+          targetStatus = item.status;
+        } else {
+          const hasMarks = item?.marks !== undefined && item?.marks !== null;
+          const isCompleted = hasMarks && (item.marks as number) > 0;
+          targetStatus = isCompleted ? 'COMPLETED' : 'SUBMITTED';
+        }
+
         matchedStudents.push({
           studentId: student._id.toString(),
           email: student.email,
           name: student.name,
           cohort: student.cohort,
           sheetName: item?.name,
-          marks: item?.marks,
+          marks: targetStatus === 'COMPLETED' ? item?.marks : undefined,
           totalMarks: item?.totalMarks,
-          targetStatus: isCompleted ? 'COMPLETED' : 'SUBMITTED',
+          targetStatus,
+          submittedAt: item?.submittedAt,
+          roll: item?.roll,
         });
       } else {
         unmatchedEmails.push(email);
@@ -95,14 +118,16 @@ export async function POST(request: NextRequest) {
     }
 
     const withMarksCount = matchedStudents.filter((s) => s.targetStatus === 'COMPLETED').length;
-    const pendingMarksCount = matchedStudents.length - withMarksCount;
+    const submittedCount = matchedStudents.filter((s) => s.targetStatus === 'SUBMITTED').length;
+    const pendingCount = matchedStudents.filter((s) => s.targetStatus === 'PENDING').length;
 
     logger.info('POST /api/assignments/bulk-match', {
       totalEmails: uniqueEmails.length,
       matched: matchedStudents.length,
       unmatched: unmatchedEmails.length,
       withMarks: withMarksCount,
-      pendingMarks: pendingMarksCount,
+      submitted: submittedCount,
+      pending: pendingCount,
     });
 
     const response = createResponse(200, 'Emails matched successfully', {
@@ -113,7 +138,8 @@ export async function POST(request: NextRequest) {
         unmatched: unmatchedEmails.length,
         total: uniqueEmails.length,
         withMarks: withMarksCount,
-        pendingMarks: pendingMarksCount,
+        pendingMarks: submittedCount,
+        pendingCount: pendingCount,
       },
     });
 

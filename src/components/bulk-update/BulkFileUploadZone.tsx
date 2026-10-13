@@ -83,9 +83,10 @@ export function BulkFileUploadZone({ file, onFileSelect, onClearFile }: BulkFile
                 Drag Excel (.xlsx) or CSV file here, or click to browse
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Columns supported: <strong>Name</strong> (optional), <strong>Email</strong>{' '}
-                (required), <strong>Obtained Marks</strong>, <strong>Total Marks</strong> (deadline
-                tier 60/50/30)
+                Columns supported: <strong>SL</strong>, <strong>Email</strong>,{' '}
+                <strong>Submitted At</strong>, <strong>Obtained Marks</strong>,{' '}
+                <strong>Total Marks</strong>, <strong>Raw Marks</strong>, <strong>Status</strong>,{' '}
+                <strong>Student Name</strong>, <strong>Roll</strong>
               </p>
             </div>
           </div>

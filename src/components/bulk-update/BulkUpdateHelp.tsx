@@ -3,19 +3,19 @@ import { Info } from 'lucide-react';
 const steps = [
   {
     step: 1,
-    text: 'Upload an Excel (.xlsx) / CSV file or paste rows copied from Google Sheets. Supported columns: Name (optional), Email (required), Obtained Marks, Total Marks (deadline tier 60/50/30), or Raw Marks.',
+    text: 'Upload an Excel (.xlsx) / CSV file or paste rows copied directly from Google Sheets. Supports columns: SL, Email, Submitted At, Obtained Marks, Total Marks, Raw Marks, Status, Student Name, Roll.',
   },
   {
     step: 2,
-    text: 'Select target assignment (A-01 to A-10) and default deadline tier (used as fallback if Total Marks is not in file).',
+    text: 'Select target assignment (A-01 to A-10) and default deadline tier (fallback if Total Marks is missing).',
   },
   {
     step: 3,
-    text: 'Review the preview report: marks > 0 are marked as Completed; 0, negative numbers (e.g. -2, -4), or empty cells are marked as Submitted (pending marks).',
+    text: 'Review the preview report: Completed (marks assigned), Submitted (awaiting grading), and Pending (not submitted). You can choose whether to include Pending students.',
   },
   {
     step: 4,
-    text: 'Click "Confirm & Apply" to update student assignments and recalculate student statuses.',
+    text: 'Click "Confirm & Apply" to update student assignments. A live progress percentage (%) will show the exact update status as records are saved.',
   },
 ];
 
