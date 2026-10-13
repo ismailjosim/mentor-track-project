@@ -7,6 +7,7 @@ import { cn } from '@/lib/cn';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/Modal';
 import { assignmentApi } from '@/lib/api-client';
 import toast from 'react-hot-toast';
+import { playCrudSound } from '@/lib/sound-effects';
 import { AssignmentTierSelector } from './AssignmentTierSelector';
 import { AssignmentMarksInput } from './AssignmentMarksInput';
 
@@ -119,10 +120,12 @@ export function AssignmentModal({
 
       if (response?.error) throw new Error(response.error);
 
+      playCrudSound('update');
       toast.success(`Assignment updated to ${newStatus}`);
       onClose();
       onSuccess?.();
     } catch (err) {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to update assignment';
       toast.error(message);
       console.error('Assignment update error:', err);
@@ -138,10 +141,12 @@ export function AssignmentModal({
       const response = await assignmentApi.delete(studentId, selectedAssignment.assignmentNumber);
       if (response?.error) throw new Error(response.error);
 
+      playCrudSound('delete');
       toast.success('Assignment entry removed');
       onClose();
       onSuccess?.();
     } catch (err) {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to remove assignment';
       toast.error(message);
       console.error('Assignment remove error:', err);

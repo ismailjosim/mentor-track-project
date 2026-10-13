@@ -1,6 +1,15 @@
 'use client';
 
-import { CheckCircle2, XCircle, AlertCircle, Award, Clock, FileQuestion, Calendar, Hash } from 'lucide-react';
+import {
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Award,
+  Clock,
+  FileQuestion,
+  Calendar,
+  Hash,
+} from 'lucide-react';
 import type { BulkResult } from './types';
 
 interface BulkResultSummaryProps {
@@ -46,12 +55,10 @@ export function BulkResultSummary({
 
   const hasPerStudentTiers = Boolean(
     result.matchedStudents &&
-      result.matchedStudents.some((s) => s.totalMarks !== undefined && s.totalMarks !== null)
+    result.matchedStudents.some((s) => s.totalMarks !== undefined && s.totalMarks !== null)
   );
 
-  const effectiveCount = includePending
-    ? result.matched
-    : result.matched - pendingCount;
+  const effectiveCount = includePending ? result.matched : result.matched - pendingCount;
 
   return (
     <div className="rounded-lg border bg-muted/20 p-4 space-y-4">
@@ -128,7 +135,9 @@ export function BulkResultSummary({
           <div className="flex justify-between items-center text-xs font-medium text-muted-foreground">
             <span>Matched Students ({result.matchedStudents.length})</span>
             {hasAssignmentDetails && (
-              <span>Scores &gt; 0 = Completed | Submitted = In Review | Pending = Not Submitted</span>
+              <span>
+                Scores &gt; 0 = Completed | Submitted = In Review | Pending = Not Submitted
+              </span>
             )}
           </div>
           <div className="text-xs space-y-1.5 max-h-56 overflow-y-auto bg-background rounded-lg p-2.5 border divide-y divide-border/40">

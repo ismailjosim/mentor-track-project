@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import type { FollowUp } from '@/interfaces/followUp.interface';
 import { followUpApi } from '@/lib/api-client';
 import toast from 'react-hot-toast';
+import { playCrudSound } from '@/lib/sound-effects';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,10 +72,12 @@ export function FollowUpSection({
       const newFollowUp = response.data as FollowUp;
       setFollowUps([newFollowUp, ...followUps]);
       onUpdate?.();
+      playCrudSound('create');
       toast.success('Follow-up scheduled successfully');
       setShowForm(false);
       reset();
     } catch (err) {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to create follow-up';
       setError(message);
       toast.error(message);
@@ -94,8 +97,10 @@ export function FollowUpSection({
 
       setFollowUps(followUps.filter((f) => f._id !== followUpId));
       onUpdate?.();
+      playCrudSound('delete');
       toast.success('Follow-up deleted');
     } catch (err) {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to delete follow-up';
       toast.error(message);
     } finally {

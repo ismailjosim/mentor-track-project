@@ -102,12 +102,7 @@ export const normalizeAssignmentStatus = (
   if (typeof marks === 'number' && marks > 0) {
     return 'COMPLETED';
   }
-  if (
-    submittedAt &&
-    submittedAt !== '—' &&
-    submittedAt !== '-' &&
-    submittedAt.trim().length > 0
-  ) {
+  if (submittedAt && submittedAt !== '—' && submittedAt !== '-' && submittedAt.trim().length > 0) {
     return 'SUBMITTED';
   }
   if (marks === 0 && (!submittedAt || submittedAt === '—' || submittedAt === '-')) {
@@ -165,12 +160,8 @@ export const parseAssignmentInput = (text: string): AssignmentImportRow[] => {
         submittedAt: headerTokens.findIndex((h) =>
           /submitted\s*at|submission\s*date|date/i.test(h)
         ),
-        obtainedMarks: headerTokens.findIndex((h) =>
-          /obtained\s*marks|^marks$|^score$/i.test(h)
-        ),
-        totalMarks: headerTokens.findIndex((h) =>
-          /total\s*marks|max\s*marks|^tier$/i.test(h)
-        ),
+        obtainedMarks: headerTokens.findIndex((h) => /obtained\s*marks|^marks$|^score$/i.test(h)),
+        totalMarks: headerTokens.findIndex((h) => /total\s*marks|max\s*marks|^tier$/i.test(h)),
         rawMarks: headerTokens.findIndex((h) => /raw\s*marks/i.test(h)),
         status: headerTokens.findIndex((h) => /status/i.test(h)),
         name: headerTokens.findIndex((h) => /student\s*name|^name$/i.test(h)),
@@ -192,19 +183,12 @@ export const parseAssignmentInput = (text: string): AssignmentImportRow[] => {
     // If line has 7+ tab tokens or matching header indices
     const hasTabStructure =
       tabTokens.length >= 7 &&
-      (headerIndices !== null ||
-        tabTokens[1]?.includes('@') ||
-        tabTokens[0]?.includes('@'));
+      (headerIndices !== null || tabTokens[1]?.includes('@') || tabTokens[0]?.includes('@'));
 
     if (hasTabStructure) {
-      const getCol = (
-        key: keyof NonNullable<typeof headerIndices>,
-        defaultIdx: number
-      ) => {
+      const getCol = (key: keyof NonNullable<typeof headerIndices>, defaultIdx: number) => {
         const idx =
-          headerIndices &&
-          headerIndices[key] !== undefined &&
-          headerIndices[key] !== -1
+          headerIndices && headerIndices[key] !== undefined && headerIndices[key] !== -1
             ? headerIndices[key]!
             : defaultIdx;
         return idx < tabTokens.length ? tabTokens[idx] : '';
@@ -219,8 +203,7 @@ export const parseAssignmentInput = (text: string): AssignmentImportRow[] => {
       const rawNameStr = getCol('name', 7);
       const rawRollStr = getCol('roll', 8);
 
-      const submittedAt =
-        rawSubAt && rawSubAt !== '—' && rawSubAt !== '-' ? rawSubAt : undefined;
+      const submittedAt = rawSubAt && rawSubAt !== '—' && rawSubAt !== '-' ? rawSubAt : undefined;
 
       let marks: number | undefined = undefined;
       if (rawObtMarks !== '' && !Number.isNaN(Number(rawObtMarks))) {
@@ -290,8 +273,7 @@ export const parseAssignmentInput = (text: string): AssignmentImportRow[] => {
 
     const statusToken = tokens.find(
       (t) =>
-        /^(?:completed|done|submitted|pending|not submitted)$/i.test(t) ||
-        /submitted but/i.test(t)
+        /^(?:completed|done|submitted|pending|not submitted)$/i.test(t) || /submitted but/i.test(t)
     );
     if (statusToken) statusText = statusToken;
 

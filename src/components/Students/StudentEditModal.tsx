@@ -6,6 +6,7 @@ import { Loader2, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal, ModalHeader, ModalBody, ModalFooter } from '@/components/Modal';
 import { studentApi } from '@/lib/api-client';
+import { playCrudSound } from '@/lib/sound-effects';
 import type { StudentWithRelations } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,10 +59,12 @@ export function StudentEditModal({ isOpen, onClose, student, onSuccess }: Studen
         throw new Error(response.error);
       }
 
+      playCrudSound('update');
       toast.success('Student information updated successfully');
       onSuccess(formData);
       onClose();
     } catch (err) {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to update student';
       toast.error(message);
     } finally {

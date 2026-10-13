@@ -7,6 +7,7 @@ import type { StudentWithRelations } from '@/types';
 import type { StudentStatus } from '@/models/Student';
 import { studentApi } from '@/lib/api-client';
 import toast from 'react-hot-toast';
+import { playCrudSound } from '@/lib/sound-effects';
 import { StudentAssignment } from '@/interfaces/assignment.interface';
 import { TrackingAssignmentGrid } from './TrackingAssignmentGrid';
 import { TrackingStatsOverview } from './TrackingStatsOverview';
@@ -125,10 +126,12 @@ export function TrackingSection({ student, assignments, onUpdate }: TrackingSect
         throw new Error(response.error);
       }
 
+      playCrudSound('update');
       toast.success(`Status updated to ${newStatus}`);
       onUpdate();
       setAutoDetectMode(false);
     } catch (error) {
+      playCrudSound('error');
       const message = error instanceof Error ? error.message : 'Failed to update status';
       toast.error(message);
     } finally {

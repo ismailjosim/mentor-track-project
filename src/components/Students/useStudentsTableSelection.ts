@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useQueryClient } from '@tanstack/react-query';
 import type { StudentWithRelations } from '@/types';
+import { playCrudSound } from '@/lib/sound-effects';
 
 export function useStudentsTableSelection(paginatedStudents: StudentWithRelations[]) {
   const queryClient = useQueryClient();
@@ -69,9 +70,11 @@ export function useStudentsTableSelection(paginatedStudents: StudentWithRelation
 
       setBulkDeleteModal(false);
       setSelectedIds(new Set());
+      playCrudSound('delete');
       toast.success(`${data.data?.deleted ?? selectedIds.size} student(s) deleted successfully`);
       queryClient.invalidateQueries({ queryKey: ['students'] });
     } catch (error) {
+      playCrudSound('error');
       toast.error(
         `Failed to delete students: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
@@ -99,9 +102,11 @@ export function useStudentsTableSelection(paginatedStudents: StudentWithRelation
       if (!response.ok) throw new Error(data.message || 'Failed to delete student');
 
       setDeleteModal({ isOpen: false });
+      playCrudSound('delete');
       toast.success('Student deleted successfully');
       queryClient.invalidateQueries({ queryKey: ['students'] });
     } catch (error) {
+      playCrudSound('error');
       toast.error(
         `Failed to delete student: ${error instanceof Error ? error.message : 'Unknown error'}`
       );

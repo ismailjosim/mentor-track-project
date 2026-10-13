@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { parseEmails, type BulkResult } from './types';
 import { BulkResultSummary } from './BulkResultSummary';
 import { BulkProgressOverlay } from './BulkProgressOverlay';
+import { playCrudSound } from '@/lib/sound-effects';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
@@ -66,6 +67,7 @@ export function BulkMentorshipTab({ onSuccess, onError }: BulkMentorshipTabProps
     onSuccess: () => {
       const matchedCount = result?.matched ?? 0;
       const statusText = mentorshipStatus ? 'Active' : 'Inactive';
+      playCrudSound('bulk');
       toast.success(
         `Successfully updated ${matchedCount} students to mentorship status: ${statusText}`
       );
@@ -76,6 +78,7 @@ export function BulkMentorshipTab({ onSuccess, onError }: BulkMentorshipTabProps
       queryClient.invalidateQueries({ queryKey: ['dashboard-overview'] });
     },
     onError: (err: Error) => {
+      playCrudSound('error');
       onError(err.message);
       toast.error(err.message);
     },

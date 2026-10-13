@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ChevronLeft, FileUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PAGE_ROUTES } from '@/lib/constants';
+import { playCrudSound } from '@/lib/sound-effects';
 import type { ImportPreview, ImportStep } from './types';
 import { ImportDropzone } from './ImportDropzone';
 import { ImportPreviewSection } from './ImportPreviewSection';
@@ -69,8 +70,10 @@ export function ImportStudentsClient() {
 
       const result = await response.json();
       setStep('success');
+      playCrudSound('create');
       toast.success(result.message || `Successfully imported students into Batch ${cohort}!`);
     } catch (error) {
+      playCrudSound('error');
       const message = error instanceof Error ? error.message : 'Import failed';
       toast.error(message);
       setStep('preview');

@@ -15,6 +15,7 @@ import {
 import { BulkResultSummary } from './BulkResultSummary';
 import { BulkFileUploadZone } from './BulkFileUploadZone';
 import { BulkProgressOverlay } from './BulkProgressOverlay';
+import { playCrudSound } from '@/lib/sound-effects';
 
 interface BulkAssignmentTabProps {
   onSuccess: (matchedCount: number, assignmentLabel: string) => void;
@@ -158,12 +159,15 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
         const currentPct = Math.min(100, Math.round((processedSoFar / totalItems) * 100));
         setProgressCurrent(processedSoFar);
         setProgressPercent(currentPct);
-        setProgressStatusText(`Saved ${processedSoFar} of ${totalItems} students (${currentPct}%)...`);
+        setProgressStatusText(
+          `Saved ${processedSoFar} of ${totalItems} students (${currentPct}%)...`
+        );
       }
 
       const label = ASSIGNMENTS[assignmentNum - 1].label;
       const matchedCount = processedSoFar;
 
+      playCrudSound('bulk');
       toast.success(
         `Successfully updated ${matchedCount} students for ${label}: ${completedCount} Completed, ${submittedCount} Submitted, ${pendingCount} Pending`
       );
@@ -174,6 +178,7 @@ export function BulkAssignmentTab({ onSuccess, onError }: BulkAssignmentTabProps
       setFile(null);
       onSuccess(matchedCount, label);
     } catch (err) {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to commit update';
       onError(message);
       toast.error(message);

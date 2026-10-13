@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { Phone, Plus, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { callLogApi } from '@/lib/api-client';
+import { playCrudSound } from '@/lib/sound-effects';
 
 import { authClient } from '@/lib/auth-client';
 import { CallLogForm } from './CallLogForm';
@@ -84,9 +85,11 @@ export function CallLogSection({
       onLogAdded?.(newLog);
       onUpdate?.();
 
+      playCrudSound('create');
       toast.success('Call log and next follow-up created successfully');
       setShowForm(false);
     } catch (err) {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to create call log';
       setError(message);
       toast.error(message);
@@ -104,8 +107,10 @@ export function CallLogSection({
       setCallLogs(callLogs.filter((log) => log._id !== logId));
       onLogDeleted?.(logId);
       onUpdate?.();
+      playCrudSound('delete');
       toast.success('Call log deleted');
     } catch (err) {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to delete call log';
       toast.error(message);
     } finally {

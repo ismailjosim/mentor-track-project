@@ -17,6 +17,7 @@ import { PAGE_ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
 import { BrandLogo } from '@/components/BrandLogo';
 import { ThemeToggler } from './ThemeToggler';
+import { SoundToggler } from './SoundToggler';
 import { BatchSelector } from './BatchSelector';
 import { UserAvatar } from '@/components/Students/StudentAvatar';
 import { authClient } from '@/lib/auth-client';
@@ -117,6 +118,7 @@ export function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           <BatchSelector />
           <ThemeToggler />
+          <SoundToggler />
 
           {session?.user ? (
             <div className="hidden items-center gap-2 md:flex">

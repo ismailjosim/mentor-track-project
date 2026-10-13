@@ -6,6 +6,7 @@ import { adminApi } from '@/lib/api-client';
 import { authClient } from '@/lib/auth-client';
 import { ShieldCheck, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { playCrudSound } from '@/lib/sound-effects';
 import type { AdminOverviewData } from './admin.types';
 import { AdminStatsCards } from './AdminStatsCards';
 import { AdminUsersTab } from './AdminUsersTab';
@@ -40,10 +41,12 @@ export function AdminClient() {
       return res.data;
     },
     onSuccess: (_, variables) => {
+      playCrudSound('update');
       toast.success(`Role updated to ${variables.role}`);
       queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
     },
     onError: (err: Error) => {
+      playCrudSound('error');
       toast.error(err.message || 'Failed to update user role');
     },
   });

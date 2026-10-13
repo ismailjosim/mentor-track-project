@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { studentApi } from '@/lib/api-client';
+import { playCrudSound } from '@/lib/sound-effects';
 
 const createStudentSchema = z.object({
   name: z.string().min(1, 'Name is required').trim(),
@@ -73,10 +74,12 @@ export function CreateStudentClient() {
     },
     onSuccess: (createdStudent) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
+      playCrudSound('create');
       toast.success('Student created successfully');
       router.push(`${PAGE_ROUTES.STUDENTS}/${createdStudent._id}`);
     },
     onError: (err) => {
+      playCrudSound('error');
       const message = err instanceof Error ? err.message : 'Failed to create student';
       toast.error(message);
     },
