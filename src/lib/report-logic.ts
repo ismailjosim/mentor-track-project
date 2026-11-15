@@ -1,12 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import mongoose from 'mongoose';
+import mongoose, { type QueryFilter } from 'mongoose';
 import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
+import type { StudentDocument } from '@/models/Student';
+import type { StudentAssignment } from '@/models/Student';
 import {
   calculateWeeklyAssignmentChange,
   getTopCallIssues,
   getTuesdayWeeklyPeriodStart,
 } from '@/lib/weekly-update';
+import { isAssignmentSubmitted } from '@/lib/student-progress';
 import {
   format,
   subWeeks,
@@ -22,8 +25,8 @@ export type ReportSection =
 
 const ASSIGNMENT_KEYS = Array.from({ length: 10 }, (_, i) => `A-${String(i + 1).padStart(2, '0')}`);
 
-function buildCohortFilter(ownerId?: string, cohort?: string) {
-  const filter: any = {};
+function buildCohortFilter(ownerId?: string, cohort?: string): QueryFilter<StudentDocument> {
+  const filter: QueryFilter<StudentDocument> = {};
   if (ownerId) {
     filter.ownerId = ownerId;
   }
@@ -62,23 +65,33 @@ async function getCohortStudentIds(ownerId?: string, cohort?: string) {
  */
 export async function getAssignmentSubmissionReport(ownerId?: string, cohort?: string) {
   const studentMatch = buildCohortFilter(ownerId, cohort);
-  const rows: any[] = [];
-
-  for (let i = 1; i <= 10; i++) {
-    const result = await Student.aggregate([
+  const [groupedStats, totalStudents] = await Promise.all([
+    Student.aggregate([
       { $match: studentMatch },
       { $unwind: '$assignments' },
-      { $match: { 'assignments.assignmentNumber': i } },
+      {
+        $match: {
+          'assignments.assignmentNumber': { $gte: 1, $lte: 10 },
+        },
+      },
       {
         $group: {
-          _id: null,
+          _id: '$assignments.assignmentNumber',
           submitted: {
+            $sum: {
+              $cond: [{ $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] }, 1, 0],
+            },
+          },
+          completed: {
+            $sum: { $cond: [{ $eq: ['$assignments.status', 'COMPLETED'] }, 1, 0] },
+          },
+          graded: {
             $sum: {
               $cond: [
                 {
-                  $or: [
+                  $and: [
                     { $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] },
-                    { $gt: ['$assignments.marks', null] },
+                    { $gt: ['$assignments.marks', 0] },
                   ],
                 },
                 1,
@@ -86,23 +99,12 @@ export async function getAssignmentSubmissionReport(ownerId?: string, cohort?: s
               ],
             },
           },
-          completed: {
-            $sum: { $cond: [{ $eq: ['$assignments.status', 'COMPLETED'] }, 1, 0] },
-          },
-          graded: {
-            $sum: { $cond: [{ $gt: ['$assignments.marks', 0] }, 1, 0] },
-          },
           pendingOrZero: {
             $sum: {
               $cond: [
                 {
                   $and: [
-                    {
-                      $or: [
-                        { $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] },
-                        { $gt: ['$assignments.marks', null] },
-                      ],
-                    },
+                    { $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] },
                     {
                       $or: [
                         { $lte: ['$assignments.marks', 0] },
@@ -120,7 +122,12 @@ export async function getAssignmentSubmissionReport(ownerId?: string, cohort?: s
             $sum: {
               $cond: [
                 {
-                  $gte: ['$assignments.marks', { $ifNull: ['$assignments.maxMarks', 60] }],
+                  $and: [
+                    { $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] },
+                    {
+                      $gte: ['$assignments.marks', { $ifNull: ['$assignments.maxMarks', 60] }],
+                    },
+                  ],
                 },
                 1,
                 0,
@@ -131,9 +138,14 @@ export async function getAssignmentSubmissionReport(ownerId?: string, cohort?: s
             $sum: {
               $cond: [
                 {
-                  $gt: [
-                    '$assignments.marks',
-                    { $multiply: [{ $ifNull: ['$assignments.maxMarks', 60] }, 0.5] },
+                  $and: [
+                    { $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] },
+                    {
+                      $gt: [
+                        '$assignments.marks',
+                        { $multiply: [{ $ifNull: ['$assignments.maxMarks', 60] }, 0.5] },
+                      ],
+                    },
                   ],
                 },
                 1,
@@ -143,39 +155,41 @@ export async function getAssignmentSubmissionReport(ownerId?: string, cohort?: s
           },
           totalMarks: {
             $sum: {
-              $cond: [{ $gt: ['$assignments.marks', 0] }, '$assignments.marks', 0],
+              $cond: [
+                {
+                  $and: [
+                    { $in: ['$assignments.status', ['SUBMITTED', 'COMPLETED']] },
+                    { $gt: ['$assignments.marks', 0] },
+                  ],
+                },
+                '$assignments.marks',
+                0,
+              ],
             },
           },
         },
       },
-    ]);
+    ]),
+    Student.countDocuments(studentMatch),
+  ]);
+  const statsByAssignment = new Map(groupedStats.map((stat) => [Number(stat._id), stat] as const));
+  const rows = Array.from({ length: 10 }, (_, index) => {
+    const assignmentNumber = index + 1;
+    const stat = statsByAssignment.get(assignmentNumber);
+    const graded = stat?.graded || 0;
 
-    const stat = result[0] || {
-      submitted: 0,
-      completed: 0,
-      graded: 0,
-      pendingOrZero: 0,
-      fullMarks: 0,
-      above50: 0,
-      totalMarks: 0,
+    return {
+      assignmentNumber,
+      assignmentKey: `A-${String(assignmentNumber).padStart(2, '0')}`,
+      submitted: stat?.submitted || 0,
+      completed: stat?.completed || 0,
+      graded,
+      pendingOrZero: stat?.pendingOrZero || 0,
+      fullMarks: stat?.fullMarks || 0,
+      above50: stat?.above50 || 0,
+      avgMarks: graded > 0 && stat ? Number((stat.totalMarks / graded).toFixed(1)) : null,
     };
-
-    const avgMarks = stat.graded > 0 ? Number((stat.totalMarks / stat.graded).toFixed(1)) : null;
-
-    rows.push({
-      assignmentNumber: i,
-      assignmentKey: `A-${String(i).padStart(2, '0')}`,
-      submitted: stat.submitted,
-      completed: stat.completed,
-      graded: stat.graded,
-      pendingOrZero: stat.pendingOrZero,
-      fullMarks: stat.fullMarks,
-      above50: stat.above50,
-      avgMarks,
-    });
-  }
-
-  const totalStudents = await Student.countDocuments(studentMatch);
+  });
 
   const withDiff = rows.map((row, index) => {
     const submissionRate = totalStudents > 0 ? (row.submitted / totalStudents) * 100 : 0;
@@ -350,33 +364,35 @@ export async function getCohortSummaryReport(
 ) {
   const studentMatch = buildCohortFilter(ownerId, cohort);
 
-  const [totalStudents, joinedMentorship, completedAll] = await Promise.all([
+  const [totalStudents, joinedMentorship, completedAll, assignmentStats] = await Promise.all([
     Student.countDocuments(studentMatch),
     Student.countDocuments({ ...studentMatch, mentorshipJoiningStatus: true }),
     Student.countDocuments({ ...studentMatch, lastCompletedAssignment: 'A-10' }),
-  ]);
-
-  const perAssignment = await Promise.all(
-    assignmentNumbers.map(async (num) => {
-      const result = await Student.aggregate([
-        { $match: studentMatch },
-        { $unwind: '$assignments' },
-        {
-          $match: {
-            'assignments.assignmentNumber': num,
-            'assignments.status': { $in: ['SUBMITTED', 'COMPLETED'] },
-          },
+    Student.aggregate([
+      { $match: studentMatch },
+      { $unwind: '$assignments' },
+      {
+        $match: {
+          'assignments.assignmentNumber': { $in: assignmentNumbers },
+          'assignments.status': { $in: ['SUBMITTED', 'COMPLETED'] },
         },
-        { $count: 'submitted' },
-      ]);
-
-      return {
-        assignmentNumber: num,
-        assignmentKey: `A-${String(num).padStart(2, '0')}`,
-        submitted: result[0]?.submitted || 0,
-      };
-    })
+      },
+      {
+        $group: {
+          _id: '$assignments.assignmentNumber',
+          submitted: { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
+  const submittedByAssignment = new Map(
+    assignmentStats.map((stat) => [Number(stat._id), stat.submitted] as const)
   );
+  const perAssignment = assignmentNumbers.map((num) => ({
+    assignmentNumber: num,
+    assignmentKey: `A-${String(num).padStart(2, '0')}`,
+    submitted: submittedByAssignment.get(num) || 0,
+  }));
 
   return {
     totalStudents,
@@ -513,14 +529,11 @@ export async function getWeeklyUpdateReport(
     let submitted = 0;
     let newSubmissions = 0;
 
-    for (const student of students as any[]) {
+    for (const student of students) {
       const assignment = student.assignments?.find(
-        (item: any) => item.assignmentNumber === assignmentNumber
+        (item: StudentAssignment) => item.assignmentNumber === assignmentNumber
       );
-      if (
-        !assignment ||
-        !(['SUBMITTED', 'COMPLETED'].includes(assignment.status) || assignment.marks != null)
-      ) {
+      if (!isAssignmentSubmitted(assignment)) {
         continue;
       }
 

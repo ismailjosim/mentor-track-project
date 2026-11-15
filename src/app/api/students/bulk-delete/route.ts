@@ -45,6 +45,7 @@ export async function DELETE(request: NextRequest) {
       Student.deleteMany({ _id: { $in: validIds }, ownerId: userId }),
       CallLog.deleteMany({ studentId: { $in: validIds }, ownerId: userId }),
       FollowUp.deleteMany({ studentId: { $in: validIds }, ownerId: userId }),
+      // Keep legacy assignment documents cleaned up until the collection is verified and migrated.
       Assignment.deleteMany({ studentId: { $in: validIds } }),
     ]);
 

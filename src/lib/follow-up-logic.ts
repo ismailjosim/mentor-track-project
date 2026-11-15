@@ -212,28 +212,14 @@ export const getCallQueue = async (limit: number = 50, ownerId: string, cohort?:
       return !isAssignmentSubmitted(currentAssignment);
     });
 
-    // Batch status updates using bulkWrite
-    const bulkOps: any[] = [];
+    const statusByStudentId = new Map<string, string>();
     for (const student of students) {
       const missedCount = getMissedReleasedAssignmentCount(
         student.assignments,
         currentAssignmentNumber
       );
       const nextStatus = getQueueStatusFromMissedCount(missedCount);
-
-      if (student.currentStatus !== nextStatus) {
-        student.currentStatus = nextStatus;
-        bulkOps.push({
-          updateOne: {
-            filter: { _id: student._id },
-            update: { $set: { currentStatus: nextStatus } },
-          },
-        });
-      }
-    }
-
-    if (bulkOps.length > 0) {
-      await Student.bulkWrite(bulkOps);
+      statusByStudentId.set(student._id.toString(), nextStatus);
     }
 
     if (students.length === 0) {
@@ -282,9 +268,11 @@ export const getCallQueue = async (limit: number = 50, ownerId: string, cohort?:
       const lastCall = lastCallMap.get(sId) || null;
       const nextFollowUp = pendingFollowUpMap.get(sId) || null;
       const overdueFollowUp = overdueFollowUpMap.get(sId) || null;
+      const currentStatus = statusByStudentId.get(sId) || student.currentStatus;
 
       return {
         ...student,
+        currentStatus,
         lastCall,
         nextFollowUp,
         overdueFollowUp,
@@ -293,7 +281,7 @@ export const getCallQueue = async (limit: number = 50, ownerId: string, cohort?:
           student.assignments,
           currentAssignmentNumber
         ),
-        priority: student.currentStatus === 'At Risk' ? 'high' : 'normal',
+        priority: currentStatus === 'At Risk' ? 'high' : 'normal',
       };
     });
 
@@ -347,29 +335,6 @@ export const getCallQueueCount = async (ownerId: string, cohort?: string): Promi
   } catch (error) {
     console.error('Failed to get call queue count:', error);
     return 0;
-  }
-};
-
-/**
- * Update follow-up status to overdue if date passed
- */
-export const updateOverdueStatus = async (ownerId: string) => {
-  try {
-    const now = new Date();
-    const result = await FollowUp.updateMany(
-      {
-        ownerId,
-        date: { $lt: now },
-        status: 'pending',
-      },
-      {
-        $set: { status: 'overdue' },
-      }
-    );
-
-    return result;
-  } catch (error) {
-    throw new Error(`Failed to update overdue status: ${error}`);
   }
 };
 

@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { QueryFilter } from 'mongoose';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, handleZodError, getPaginationParams } from '@/lib/utils';
 import { FollowUpCreateSchema } from '@/lib/validators';
-import { updateOverdueStatus } from '@/lib/follow-up-logic';
+import { getEffectiveFollowUpStatus } from '@/lib/follow-up-status';
 import FollowUp from '@/models/FollowUp';
+import type { FollowUpDocument } from '@/models/FollowUp';
 import Student from '@/models/Student';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
@@ -26,38 +28,54 @@ export async function GET(request: NextRequest) {
 
     const { skip } = getPaginationParams(page, limit);
 
-    // Update overdue status
-    await updateOverdueStatus(userId);
-
-    // Build filter
-    const filter: any = { ownerId: userId };
+    const now = new Date();
+    const filters: QueryFilter<FollowUpDocument>[] = [{ ownerId: userId }];
     if (studentId) {
       if (!ObjectId.isValid(studentId)) {
         return NextResponse.json(createResponse(400, 'Invalid student ID'), { status: 400 });
       }
-      filter.studentId = new ObjectId(studentId);
+      filters.push({ studentId });
     }
-    if (status) filter.status = status;
 
+    if (status === 'overdue') {
+      filters.push({
+        $or: [{ status: 'overdue' }, { status: 'pending', date: { $lt: now } }],
+      });
+    } else if (status === 'pending') {
+      filters.push({ status: 'pending' }, { date: { $gte: now } });
+    } else if (status === 'completed') {
+      filters.push({ status: 'completed' });
+    } else if (status) {
+      return NextResponse.json(createResponse(400, 'Invalid follow-up status'), { status: 400 });
+    }
+
+    const dateFilter: { $gte?: Date; $lte?: Date } = {};
     if (startDate || endDate) {
-      filter.date = {};
-      if (startDate) filter.date.$gte = new Date(startDate);
+      if (startDate) dateFilter.$gte = new Date(startDate);
       if (endDate) {
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
-        filter.date.$lte = end;
+        dateFilter.$lte = end;
       }
     }
+    if (Object.keys(dateFilter).length > 0) {
+      filters.push({ date: dateFilter });
+    }
+    const filter = filters.length > 1 ? { $and: filters } : filters[0];
 
     const [followUps, total] = await Promise.all([
-      FollowUp.find(filter).populate('studentId').sort({ date: 1 }).skip(skip).limit(limit),
+      FollowUp.find(filter).populate('studentId').sort({ date: 1 }).skip(skip).limit(limit).lean(),
       FollowUp.countDocuments(filter),
     ]);
 
     const pages = Math.ceil(total / limit);
+    const data = followUps.map((followUp) => ({
+      ...followUp,
+      status: getEffectiveFollowUpStatus(followUp.status, followUp.date, now),
+    }));
 
     const response = createResponse(200, 'Follow-ups fetched successfully', {
-      data: followUps,
+      data,
       pagination: { page, limit, total, pages },
     });
 

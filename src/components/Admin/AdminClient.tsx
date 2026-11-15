@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi } from '@/lib/api-client';
-import { authClient } from '@/lib/auth-client';
 import { ShieldCheck, AlertTriangle, Loader2, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { playCrudSound } from '@/lib/sound-effects';
@@ -13,16 +12,10 @@ import { AdminUsersTab } from './AdminUsersTab';
 import { AdminBatchesTab } from './AdminBatchesTab';
 import { AdminActivitiesTab } from './AdminActivitiesTab';
 
-export function AdminClient() {
+export function AdminClient({ isSuperAdmin }: { isSuperAdmin: boolean }) {
   const queryClient = useQueryClient();
-  const { data: session } = authClient.useSession();
   const [activeTab, setActiveTab] = useState<'users' | 'batches' | 'activities'>('users');
   const [searchQuery, setSearchQuery] = useState('');
-
-  const currentUserEmail = session?.user?.email?.toLowerCase();
-  const isSuperAdmin =
-    currentUserEmail === 'ismailjosim99@gmail.com' ||
-    (session?.user as { role?: string | null })?.role === 'super_admin';
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery<AdminOverviewData>({
     queryKey: ['admin-overview'],

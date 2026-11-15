@@ -12,6 +12,13 @@ interface AssignmentCompletionStatsProps {
   stats?: AssignmentPerformanceStat[];
 }
 
+function getLowOrZeroCount(item: AssignmentPerformanceStat) {
+  return (
+    item.lowOrZeroCount ??
+    Math.max(0, item.gradedCount - item.above50Count + (item.zeroMarksCount || 0))
+  );
+}
+
 export function AssignmentCompletionStats({
   students = [],
   stats: serverStats,
@@ -107,9 +114,7 @@ export function AssignmentCompletionStats({
             {computedStats.map((item) => {
               const targetIsSet = item.targetPercentage != null && item.targetCount != null;
               const actualCompletionRate = item.actualCompletionRate ?? item.submissionRate;
-              const lowerOrZeroCount =
-                item.lowOrZeroCount ??
-                Math.max(0, item.gradedCount - item.above50Count + (item.zeroMarksCount || 0));
+              const lowerOrZeroCount = getLowOrZeroCount(item);
 
               return (
                 <div
@@ -220,53 +225,71 @@ export function AssignmentCompletionStats({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-border/70">
-            <table className="w-full min-w-160 text-sm">
-              <thead className="bg-muted/40 border-b border-border/70">
+            <table className="w-full min-w-[1080px] text-sm">
+              <thead className="border-b border-border/70 bg-muted/40">
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="py-3 px-4 font-bold">Assignment</th>
-                  <th className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">
-                    &gt; 50% Marks
+                  <th className="px-4 py-3 font-bold">Assignment</th>
+                  <th className="px-4 py-3 text-right font-bold">Total submissions</th>
+                  <th className="px-4 py-3 text-right font-bold">Last Tuesday</th>
+                  <th className="px-4 py-3 text-right font-bold">New this week</th>
+                  <th className="px-4 py-3 text-right font-bold">Target</th>
+                  <th className="px-4 py-3 text-right font-bold">Actual completion</th>
+                  <th className="px-4 py-3 text-right font-bold">Gap</th>
+                  <th className="px-4 py-3 text-right font-bold">Need to submit</th>
+                  <th className="px-4 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                    &gt;50% marks
                   </th>
-                  <th className="py-3 px-4 font-bold">Total Submitted</th>
-                  <th className="py-3 px-4 font-bold text-emerald-600 dark:text-emerald-400">
-                    100% Marks
+                  <th className="px-4 py-3 text-right font-bold text-rose-600 dark:text-rose-400">
+                    ≤50% or 0
                   </th>
-                  <th className="py-3 px-4 font-bold">Graded (&gt;0)</th>
-                  <th className="py-3 px-4 font-bold text-rose-600 dark:text-rose-400">0 Marks</th>
-                  <th className="py-3 px-4 font-bold text-amber-600 dark:text-amber-400">
-                    Pending
-                  </th>
-                  <th className="py-3 px-4 font-bold">Avg Score</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {computedStats.map((item) => (
-                  <tr key={item.assignmentNumber} className="hover:bg-muted/10 transition-colors">
-                    <td className="py-3 px-4 font-bold text-primary">{item.assignmentKey}</td>
-                    <td className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">
-                      {item.above50Count} ({item.above50Rate}%)
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-foreground">
-                      {item.submittedCount} ({item.submissionRate}%)
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-emerald-600 dark:text-emerald-400">
-                      {item.fullMarksCount} ({item.fullMarksRate}%)
-                    </td>
-                    <td className="py-3 px-4 font-medium text-foreground">
-                      {item.gradedCount} ({item.gradedRate}%)
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-rose-600 dark:text-rose-400">
-                      {item.zeroMarksCount ?? 0} ({item.zeroMarksRate ?? 0}%)
-                    </td>
-                    <td className="py-3 px-4 font-semibold text-amber-600 dark:text-amber-400">
-                      {item.pendingCount ?? item.pendingOrZeroCount - (item.zeroMarksCount || 0)} (
-                      {item.pendingRate ?? item.pendingOrZeroRate}%)
-                    </td>
-                    <td className="py-3 px-4 font-mono font-medium">
-                      {item.avgMarks !== null ? item.avgMarks : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {computedStats.map((item) => {
+                  const targetIsSet = item.targetPercentage != null && item.targetCount != null;
+                  const actualCompletionRate = item.actualCompletionRate ?? item.submissionRate;
+
+                  return (
+                    <tr key={item.assignmentNumber} className="transition-colors hover:bg-muted/10">
+                      <td className="px-4 py-3 font-bold text-primary">{item.assignmentKey}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-foreground">
+                        {item.submittedCount}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {item.previousWeekSubmittedCount ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                        {item.newThisWeekSubmittedCount === undefined
+                          ? '—'
+                          : `+${item.newThisWeekSubmittedCount}`}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {targetIsSet
+                          ? `${item.targetPercentage}% · ${item.targetCount}`
+                          : 'Not set'}
+                      </td>
+                      <td className="px-4 py-3 text-right">{actualCompletionRate}%</td>
+                      <td
+                        className={`px-4 py-3 text-right font-semibold ${
+                          (item.targetGapPercentage ?? 0) < 0
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-emerald-600 dark:text-emerald-400'
+                        }`}
+                      >
+                        {item.targetGapPercentage == null
+                          ? '—'
+                          : `${item.targetGapPercentage > 0 ? '+' : ''}${item.targetGapPercentage}%`}
+                      </td>
+                      <td className="px-4 py-3 text-right">{item.studentsToTarget ?? '—'}</td>
+                      <td className="px-4 py-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                        {item.above50Count}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-rose-600 dark:text-rose-400">
+                        {getLowOrZeroCount(item)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

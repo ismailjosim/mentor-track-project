@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
+import { isAssignmentSubmitted } from '@/lib/student-progress';
 import { StudentsTableFilters } from './StudentsTableFilters';
 import { StudentsTablePagination } from './StudentsTablePagination';
 import { StudentsTableBulkBar } from './StudentsTableBulkBar';
@@ -117,14 +118,9 @@ export function StudentsTable({
         assignmentNum
     );
     if (found) {
-      return (
-        found.status === 'SUBMITTED' ||
-        found.status === 'COMPLETED' ||
-        (typeof found.marks === 'number' && found.marks > 0)
-      );
+      return isAssignmentSubmitted(found);
     }
-    const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
-    return lastDone >= assignmentNum;
+    return false;
   };
 
   const filtered = useMemo(() => {

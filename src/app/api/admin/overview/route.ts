@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from 'next/server';
 import { requireAdminUser } from '@/lib/auth-utils';
+import { isSuperAdminEmail } from '@/lib/auth-utils';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import Student from '@/models/Student';
@@ -47,14 +48,15 @@ export async function GET() {
           CallLog.findOne({ ownerId: userIdStr }).sort({ date: -1 }).select('date').lean(),
         ]);
 
-        const assignedRole =
-          u.email?.toLowerCase() === 'ismailjosim99@gmail.com' ? 'super_admin' : u.role || 'user';
+        const isConfiguredSuperAdmin = isSuperAdminEmail(u.email);
+        const assignedRole = isConfiguredSuperAdmin ? 'super_admin' : u.role || 'user';
 
         return {
           id: userIdStr,
           name: u.name || 'Unnamed User',
           email: u.email,
           role: assignedRole,
+          isConfiguredSuperAdmin,
           createdAt: u.createdAt || null,
           studentsCount,
           callsCount,

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminUser } from '@/lib/auth-utils';
+import { isSuperAdminEmail, requireAdminUser } from '@/lib/auth-utils';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import { ObjectId } from 'mongodb';
@@ -35,8 +35,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json(createResponse(404, 'User not found'), { status: 404 });
     }
 
-    if (targetUser.email?.toLowerCase() === 'ismailjosim99@gmail.com' && role !== 'super_admin') {
-      return NextResponse.json(createResponse(400, 'Primary Super Admin cannot be demoted.'), {
+    if (isSuperAdminEmail(targetUser.email) && role !== 'super_admin') {
+      return NextResponse.json(createResponse(400, 'Configured Super Admin cannot be demoted.'), {
         status: 400,
       });
     }

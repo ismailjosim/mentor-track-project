@@ -6,6 +6,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
+import { isAssignmentCompleted, isAssignmentSubmitted } from '@/lib/student-progress';
 import { UserInfoCell } from '@/components/shared/Cell/UserInfoCell';
 import { StatusBadgeCell } from '@/components/shared/Cell/StatusBadgeCell';
 
@@ -50,11 +51,7 @@ export const getStudentsColumns = ({
     enableSorting: true,
     cell: ({ row }) => {
       const s = row.original;
-      const completedAssignments = (s.assignments || []).filter(
-        (a) =>
-          a.status === 'COMPLETED' ||
-          (typeof a.marks === 'number' && !Number.isNaN(a.marks) && a.marks > 0)
-      );
+      const completedAssignments = (s.assignments || []).filter(isAssignmentCompleted);
       const maxCompleted =
         completedAssignments.length > 0
           ? Math.max(...completedAssignments.map((a) => a.assignmentNumber ?? 0))
@@ -108,31 +105,20 @@ export const getStudentsColumns = ({
     id: 'lastSubmitted',
     header: 'Last Submitted',
     accessorFn: (row) => {
-      const submitted = (row.assignments || []).filter(
-        (a) =>
-          a.status === 'COMPLETED' ||
-          a.status === 'SUBMITTED' ||
-          (typeof a.marks === 'number' && !Number.isNaN(a.marks))
-      );
+      const submitted = (row.assignments || []).filter(isAssignmentSubmitted);
       if (submitted.length > 0) {
         return Math.max(...submitted.map((a) => a.assignmentNumber ?? 0));
       }
-      return getLastAssignmentNumber(row.lastCompletedAssignment);
+      return 0;
     },
     enableSorting: true,
     cell: ({ row }) => {
       const s = row.original;
-      const submitted = (s.assignments || []).filter(
-        (a) =>
-          a.status === 'COMPLETED' ||
-          a.status === 'SUBMITTED' ||
-          (typeof a.marks === 'number' && !Number.isNaN(a.marks))
-      );
+      const submitted = (s.assignments || []).filter(isAssignmentSubmitted);
       const maxFromAssignments =
         submitted.length > 0 ? Math.max(...submitted.map((a) => a.assignmentNumber ?? 0)) : 0;
-      const lastDone = getLastAssignmentNumber(s.lastCompletedAssignment);
-      const bestLastNum = Math.max(maxFromAssignments, lastDone);
-      const lastSubmitted = bestLastNum > 0 ? `A-${String(bestLastNum).padStart(2, '0')}` : '—';
+      const lastSubmitted =
+        maxFromAssignments > 0 ? `A-${String(maxFromAssignments).padStart(2, '0')}` : '—';
 
       return lastSubmitted !== '—' ? (
         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-muted text-foreground border border-border">

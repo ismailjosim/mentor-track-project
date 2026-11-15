@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { cn } from '@/lib/cn';
@@ -22,14 +23,26 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = authClient.useSession();
+  const { data: privileges } = useQuery({
+    queryKey: ['auth-privileges', session?.user?.id],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/privileges');
+      if (!response.ok) {
+        throw new Error('Failed to check account privileges');
+      }
+      return (await response.json()) as { isAdmin: boolean; isSuperAdmin: boolean };
+    },
+    enabled: Boolean(session?.user),
+    staleTime: 60_000,
+  });
   const [internalCollapsed, setInternalCollapsed] = useState(false);
 
   const userRole = (
     (session?.user as { role?: string | null })?.role as string | undefined
   )?.toLowerCase();
-  const isSuperAdmin =
-    session?.user?.email?.toLowerCase() === 'ismailjosim99@gmail.com' || userRole === 'super_admin';
-  const isAdmin = isSuperAdmin || userRole === 'admin' || userRole === 'system_admin';
+  const isSuperAdmin = privileges?.isSuperAdmin || userRole === 'super_admin';
+  const isAdmin =
+    privileges?.isAdmin || isSuperAdmin || userRole === 'admin' || userRole === 'system_admin';
 
   // Sign out confirmation popup state
   const [isSignoutModalOpen, setIsSignoutModalOpen] = useState(false);

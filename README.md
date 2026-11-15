@@ -25,37 +25,46 @@
 ## 🚀 Features
 
 ### 📊 Cohort Dashboard & Real-Time Analytics
+
 - **Live Cohort Metrics**: Instant KPI tracking for Total, Active, On Track, Behind, At Risk, and Completed students.
 - **Prioritized Outreach Queue**: Auto-generated call queue prioritized by student risk level and overdue follow-up dates.
 - **Assignment Distribution**: Visual charts (via Recharts) displaying student submission and completion progression from `A-01` to `A-10`.
-- **Students at Risk Table**: Paginated view of students needing immediate attention with direct deep-links to their student profiles.
+- **Assignment Performance**: Tuesday-baseline submission comparisons, target progress, completion gaps, and mark bands.
 
 ### 🎓 Student Lifecycle & Progress Management
+
 - **Search & Multi-Faceted Filters**: Instant filtering across status, progress range, mentorship group, working device, and academic program.
 - **Individual Student Profiles**: Comprehensive dossier displaying contact details, educational background, hardware setup, full assignment history, call logs, and upcoming follow-ups.
 - **Bulk Import**: Drag-and-drop CSV and Excel (`.xlsx`, `.xls`) import with schema validation, field auto-detection, interactive preview table, and duplicate handling.
 - **Data Export**: Export filtered student rosters and outreach call lists to CSV/Excel for external analysis.
 
 ### 📝 Assignment Operations & Tracking
+
 - **Standardized Assignments**: Structured tracking across 10 milestone assignments with statuses (`PENDING`, `SUBMITTED`, `COMPLETED`), submission marks, and completion dates.
+- **Submission Source of Truth**: An assignment counts as submitted only when its status is `SUBMITTED` or `COMPLETED`; marks alone do not count as a submission.
 - **Live Cohort Milestone**: Set and adjust the current active cohort assignment to automatically calculate student lag and risk statuses.
 - **Bulk Assignment Matcher**: Paste or upload student email lists to batch-mark assignments as submitted or completed in a single action.
 
+Student assignment records are stored in the `Student.assignments` array. The standalone `Assignment` model remains for legacy cascade cleanup; verify and migrate any existing documents in that collection before removing it.
+
 ### 📞 Outreach Calls & Automated Follow-Ups
+
 - **Call Logging**: Record detailed call logs with outreach outcomes, timestamps, and mentor notes.
 - **Intelligent Follow-Up Automation**: Auto-schedules follow-up milestones (default: +7 days) upon logging calls.
 - **Queue Resolution**: Automatically resolves open follow-ups when an outreach call is completed, maintaining a clean call queue.
 
 ### 📈 Cohort Reports & Deep-Dives
+
 - **Cohort Summary**: High-level health snapshot of cohort momentum and mentorship participation.
 - **Assignment Submission Breakdown**: Granular completion rates per assignment with percentage distributions.
 - **Call Rounds Report**: Track mentor engagement frequency and overdue contact cycles.
 - **Custom Section Generation**: Generate and export targeted report sections on demand.
 
 ### 🔒 Authentication & Workspace Security
+
 - **Flexible Sign-In**: Email/password registration and Google OAuth 2.0 single sign-on.
 - **Session Management**: Session persistence and token management powered by Better Auth with MongoDB adapter.
-- **Protected Routes**: Middleware-enforced authorization with automated login redirects.
+- **Protected Routes**: Page access is guarded by the Next.js proxy; API handlers enforce authentication and owner-scoped data access.
 
 ---
 
@@ -80,12 +89,13 @@
 ```text
 src/
 ├── app/                          # Next.js App Router routes & API endpoints
-│   ├── (auth)/                   # Authentication routes (login, register, error)
+│   ├── auth/                      # Authentication routes (login, register, error)
 │   ├── api/                      # Authenticated REST API route handlers
+│   │   ├── auth/                 # Authentication and privilege endpoints
 │   │   ├── assignments/          # Assignment bulk submission & stats
 │   │   ├── call-logs/            # Call log CRUD operations
 │   │   ├── call-queue/           # Prioritized outreach queue endpoint
-│   │   ├── dashboard/            # Overview, stats, and failing student APIs
+│   │   ├── dashboard/            # Overview and dashboard statistics APIs
 │   │   ├── follow-ups/           # Follow-up scheduling & resolution
 │   │   ├── reports/              # Aggregated cohort report generator
 │   │   └── students/             # Student CRUD, import, analyze, & bulk-update
@@ -96,7 +106,7 @@ src/
 ├── components/                   # Modular React components (< 300 lines each)
 │   ├── auth/                     # Google OAuth button & credentials forms
 │   ├── bulk-update/              # Assignment, mentorship, & student batch tabs
-│   ├── Dashboard/                # KPI cards, charts, call queue, & risk tables
+│   ├── Dashboard/                # KPI cards, charts, assignment stats, & call queue
 │   ├── Layout/                   # Navbar, sidebar, theme toggle, & app shell
 │   ├── Reports/                  # Report options panel, cohort summaries, & charts
 │   ├── Students/                 # Table filters, pagination, rows, modals, & profile
@@ -148,6 +158,7 @@ MONGODB_DB_NAME=student-management
 # Better Auth Configuration
 BETTER_AUTH_SECRET=your-random-32-byte-base64-secret
 BETTER_AUTH_URL=http://localhost:3000
+SUPER_ADMIN_EMAILS=admin@example.com
 NEXT_PUBLIC_AUTH_URL=http://localhost:3000
 NEXT_PUBLIC_API_URL=http://localhost:3000
 
@@ -157,9 +168,12 @@ BETTER_AUTH_GOOGLE_CLIENT_SECRET=your-google-client-secret
 ```
 
 > **Tip:** You can generate a secure `BETTER_AUTH_SECRET` by running:
+>
 > ```bash
 > openssl rand -base64 32
 > ```
+>
+> Set `BETTER_AUTH_SECRET` to a unique secret of at least 32 characters in production. Configure privileged accounts as a comma-separated list in `SUPER_ADMIN_EMAILS`.
 
 ### 3. Google OAuth Setup (Optional)
 
@@ -188,8 +202,11 @@ Visit [http://localhost:3000](http://localhost:3000) to open the app.
 | `pnpm start` | Runs the compiled production server. |
 | `pnpm lint` | Runs ESLint 9 across all codebase files. |
 | `pnpm type-check` | Runs the TypeScript compiler without emitting files to verify types. |
+| `pnpm test` | Runs the Vitest suite. |
+| `pnpm check` | Runs type-checking, lint, and tests. |
 | `pnpm format` | Formats files with Prettier. |
-| `pnpm db:seed` | Seeds the database with sample students and assignments. |
+| `pnpm db:migrate-cohort` | Runs the cohort migration script. |
+| `pnpm db:claim-legacy` | Runs the legacy data-claim script. |
 
 ---
 

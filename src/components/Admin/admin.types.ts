@@ -11,6 +11,7 @@ export interface UserItem {
   name: string;
   email: string;
   role: string;
+  isConfiguredSuperAdmin: boolean;
   createdAt: string | null;
   studentsCount: number;
   callsCount: number;

@@ -52,8 +52,7 @@ export function AdminUsersTab({
           </thead>
           <tbody className="divide-y divide-border/60">
             {filteredUsers.map((u) => {
-              const isThisSuperAdmin =
-                u.email.toLowerCase() === 'ismailjosim99@gmail.com' || u.role === 'super_admin';
+              const isThisSuperAdmin = u.isConfiguredSuperAdmin || u.role === 'super_admin';
 
               return (
                 <tr key={u.id} className="hover:bg-muted/20 transition-colors">
@@ -87,9 +86,9 @@ export function AdminUsersTab({
                   </td>
                   {isSuperAdmin && (
                     <td className="py-3.5 px-4 text-right">
-                      {u.email.toLowerCase() === 'ismailjosim99@gmail.com' ? (
+                      {u.isConfiguredSuperAdmin ? (
                         <span className="text-[11px] text-muted-foreground font-semibold italic">
-                          Permanent Super Admin
+                          Configured Super Admin
                         </span>
                       ) : (
                         <select

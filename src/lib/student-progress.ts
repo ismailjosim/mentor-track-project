@@ -1,4 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { StudentAssignment, StudentDocument, StudentStatus } from '@/models/Student';
+
+type AssignmentProgress = Pick<StudentAssignment, 'assignmentNumber' | 'status' | 'marks'>;
+
+type StudentProgressInput = Pick<StudentDocument, 'assignments' | 'currentStatus'>;
 
 export const formatAssignmentKey = (assignmentNumber: number) =>
   `A-${String(assignmentNumber).padStart(2, '0')}`;
@@ -10,19 +14,23 @@ export const parseAssignmentNumber = (assignment: string | undefined | null) => 
   return Number.isNaN(assignmentNumber) ? null : assignmentNumber;
 };
 
-export const isAssignmentSubmitted = (assignment: any) =>
-  assignment?.status === 'SUBMITTED' ||
-  assignment?.status === 'COMPLETED' ||
-  (typeof assignment?.marks === 'number' && !Number.isNaN(assignment.marks));
+export const isAssignmentSubmitted = (
+  assignment?: Pick<StudentAssignment, 'status' | 'marks'> | null
+): boolean => assignment?.status === 'SUBMITTED' || assignment?.status === 'COMPLETED';
 
 /**
  * An assignment is completed only if status is COMPLETED or it has marks > 0.
  * Submitted assignments with 0 marks or pending marks are considered PENDING grading.
  */
-export const isAssignmentCompleted = (assignment: any) =>
-  typeof assignment?.marks === 'number' && !Number.isNaN(assignment.marks) && assignment.marks > 0;
+export const isAssignmentCompleted = (
+  assignment?: Pick<StudentAssignment, 'status' | 'marks'> | null
+): boolean =>
+  assignment?.status === 'COMPLETED' ||
+  (typeof assignment?.marks === 'number' &&
+    !Number.isNaN(assignment.marks) &&
+    assignment.marks > 0);
 
-export const getHighestCompletedAssignment = (assignments: any[] = []) =>
+export const getHighestCompletedAssignment = (assignments: AssignmentProgress[] = []) =>
   assignments.reduce((highest, assignment) => {
     if (!assignment?.assignmentNumber) return highest;
     if (!isAssignmentCompleted(assignment)) return highest;
@@ -30,7 +38,7 @@ export const getHighestCompletedAssignment = (assignments: any[] = []) =>
   }, 0);
 
 export const getMissedReleasedAssignmentCount = (
-  assignments: any[] = [],
+  assignments: AssignmentProgress[] = [],
   currentAssignment: number
 ) =>
   Array.from({ length: currentAssignment }, (_, index) => index + 1).filter((assignmentNumber) => {
@@ -38,13 +46,16 @@ export const getMissedReleasedAssignmentCount = (
     return !isAssignmentSubmitted(assignment);
   }).length;
 
-export const getStatusFromMissedCount = (missedCount: number) => {
+export const getStatusFromMissedCount = (missedCount: number): StudentStatus => {
   if (missedCount === 0) return 'On Track';
   if (missedCount === 1) return 'Behind';
   return 'At Risk';
 };
 
-export const resolveStudentProgress = (student: any, currentAssignmentNumber: number) => {
+export const resolveStudentProgress = (
+  student: StudentProgressInput | null | undefined,
+  currentAssignmentNumber: number
+) => {
   const assignments = student?.assignments || [];
   const highestCompletedAssignment = getHighestCompletedAssignment(assignments);
   const missedAssignmentCount = getMissedReleasedAssignmentCount(

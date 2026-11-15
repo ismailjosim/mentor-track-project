@@ -169,30 +169,30 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
 
       {stats && <DashboardStats stats={stats} />}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-        <div className="xl:col-span-7">
-          {allStudents.length > 0 && (
-            <SubmissionDistribution students={allStudents} stats={overview?.assignmentStats} />
-          )}
-        </div>
-        <div className="xl:col-span-5">
+      {allStudents.length > 0 && (
+        <SubmissionDistribution students={allStudents} stats={overview?.assignmentStats} />
+      )}
+
+      <div className="grid grid-cols-1 items-stretch gap-6 xl:grid-cols-12">
+        <div className="min-w-0 xl:col-span-7">
           <CallStatisticsChart cohort={selectedCohort} />
+        </div>
+        <div className="min-w-0 xl:col-span-5">
+          <CallQueue
+            students={callQueueStudents}
+            onRefresh={handleRefresh}
+            currentPage={callQueuePage}
+            totalPages={callQueueTotalPages}
+            totalCount={callQueueTotalCount}
+            onPageChange={(page) => setCallQueuePage(page)}
+            loading={isCallQueueLoading}
+          />
         </div>
       </div>
 
       {allStudents.length > 0 && (
         <AssignmentCompletionStats students={allStudents} stats={overview?.assignmentStats} />
       )}
-
-      <CallQueue
-        students={callQueueStudents}
-        onRefresh={handleRefresh}
-        currentPage={callQueuePage}
-        totalPages={callQueueTotalPages}
-        totalCount={callQueueTotalCount}
-        onPageChange={(page) => setCallQueuePage(page)}
-        loading={isCallQueueLoading}
-      />
     </div>
   );
 }

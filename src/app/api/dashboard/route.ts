@@ -1,11 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { NextRequest, NextResponse } from 'next/server';
 import { requireCurrentUserId } from '@/lib/auth-utils';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import Student from '@/models/Student';
 import { Settings } from '@/models/Settings';
+import type { StudentAssignment } from '@/models/Student';
+import {
+  getMissedReleasedAssignmentCount,
+  isAssignmentSubmitted,
+  resolveStudentProgress,
+} from '@/lib/student-progress';
 import { ASSIGNMENT_TARGET_PERCENTAGES } from '@/lib/assignment-targets';
 import { getTuesdayWeeklyPeriodStart } from '@/lib/weekly-update';
 
@@ -15,8 +19,6 @@ const parseAssignmentNumber = (assignment?: string | null) => {
   const value = Number.parseInt(assignment?.split('-')[1] || '1', 10);
   return Number.isNaN(value) ? 1 : value;
 };
-
-const isSubmitted = (status?: string) => status === 'SUBMITTED' || status === 'COMPLETED';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,10 +32,9 @@ export async function GET(request: NextRequest) {
     const selectedCohort =
       rawCohort && rawCohort !== 'all' ? rawCohort.trim().replace(/[^\d]/g, '') : null;
 
-    const studentFilter: any = { ownerId: userId };
-    if (selectedCohort) {
-      studentFilter.cohort = selectedCohort;
-    }
+    const studentFilter = selectedCohort
+      ? { ownerId: userId, cohort: selectedCohort }
+      : { ownerId: userId };
 
     const [students, settings, distinctCohorts] = await Promise.all([
       Student.find(studentFilter)
@@ -50,30 +51,34 @@ export async function GET(request: NextRequest) {
     ).sort((a, b) => Number(a) - Number(b));
 
     const currentAssignmentNumber = parseAssignmentNumber(settings?.currentAssignment);
+    const progressByStudentId = new Map(
+      students.map((student) => [
+        String(student._id),
+        resolveStudentProgress(student, currentAssignmentNumber),
+      ])
+    );
+    const getCurrentStatus = (student: (typeof students)[number]) =>
+      progressByStudentId.get(String(student._id))?.nextStatus || student.currentStatus;
     let totalAssignments = 0;
     let completedAssignments = 0;
 
     const callQueue = students
-      .filter((student: any) => {
-        if (student.currentStatus === 'Dropped' || student.currentStatus === 'Completed') {
+      .filter((student) => {
+        const currentStatus = getCurrentStatus(student);
+        if (currentStatus === 'Dropped' || currentStatus === 'Completed') {
           return false;
         }
 
         const currentAssignment = student.assignments?.find(
-          (assignment: any) => assignment.assignmentNumber === currentAssignmentNumber
+          (assignment: StudentAssignment) => assignment.assignmentNumber === currentAssignmentNumber
         );
-        return !isSubmitted(currentAssignment?.status);
+        return !isAssignmentSubmitted(currentAssignment);
       })
-      .map((student: any) => {
-        const missedCount = Array.from(
-          { length: currentAssignmentNumber },
-          (_, index) => index + 1
-        ).filter((assignmentNumber) => {
-          const assignment = student.assignments?.find(
-            (item: any) => item.assignmentNumber === assignmentNumber
-          );
-          return !isSubmitted(assignment?.status);
-        }).length;
+      .map((student) => {
+        const progress = progressByStudentId.get(String(student._id));
+        const missedCount =
+          progress?.missedAssignmentCount ??
+          getMissedReleasedAssignmentCount(student.assignments, currentAssignmentNumber);
 
         return {
           _id: student._id,
@@ -82,42 +87,46 @@ export async function GET(request: NextRequest) {
           phone: student.phone,
           lastCompletedAssignment: student.lastCompletedAssignment,
           lastContactedAt: student.lastContactedAt,
-          currentStatus: missedCount >= 2 ? 'At Risk' : 'Behind',
+          currentStatus: progress?.nextStatus || getCurrentStatus(student) || 'Behind',
           missedAssignmentCount: missedCount,
         };
       })
-      .sort((a: any, b: any) => {
+      .sort((a, b) => {
         if (a.currentStatus !== b.currentStatus) return a.currentStatus === 'At Risk' ? -1 : 1;
         return (
           new Date(a.lastContactedAt || 0).getTime() - new Date(b.lastContactedAt || 0).getTime()
         );
       });
 
-    for (const student of students as any[]) {
+    for (const student of students) {
       totalAssignments += student.assignments?.length || 0;
       completedAssignments +=
-        student.assignments?.filter((assignment: any) => assignment.status === 'COMPLETED')
-          .length || 0;
+        student.assignments?.filter(
+          (assignment: StudentAssignment) => assignment.status === 'COMPLETED'
+        ).length || 0;
     }
 
     const failingStudents = students
-      .filter((student: any) => ['Behind', 'At Risk'].includes(student.currentStatus))
-      .map((student: any) => ({
+      .filter((student) => ['Behind', 'At Risk'].includes(getCurrentStatus(student) || ''))
+      .map((student) => ({
         _id: student._id,
         name: student.name,
         email: student.email,
         phone: student.phone,
-        currentStatus: student.currentStatus,
+        currentStatus: getCurrentStatus(student),
         lastCompletedAssignment: student.lastCompletedAssignment,
       }));
 
-    const completedStudentsCount = students.filter((student: any) => {
-      if (student.currentStatus === 'Dropped') return false;
-      if (student.currentStatus === 'Completed') return true;
+    const completedStudentsCount = students.filter((student) => {
+      const currentStatus = getCurrentStatus(student);
+      if (currentStatus === 'Dropped') return false;
+      if (currentStatus === 'Completed') return true;
       if (!currentAssignmentNumber || currentAssignmentNumber < 1) return false;
       for (let i = 1; i <= currentAssignmentNumber; i++) {
-        const a = student.assignments?.find((item: any) => item.assignmentNumber === i);
-        if (!a || !isSubmitted(a.status)) {
+        const a = student.assignments?.find(
+          (item: StudentAssignment) => item.assignmentNumber === i
+        );
+        if (!a || !isAssignmentSubmitted(a)) {
           return false;
         }
       }
@@ -125,7 +134,7 @@ export async function GET(request: NextRequest) {
     }).length;
 
     const mentorshipJoined = students.filter(
-      (student: any) => student.mentorshipJoiningStatus === true
+      (student) => student.mentorshipJoiningStatus === true
     ).length;
     const mentorshipNotJoined = students.length - mentorshipJoined;
 
@@ -147,18 +156,13 @@ export async function GET(request: NextRequest) {
       let totalMarksSum = 0;
       let newThisWeekSubmittedCount = 0;
 
-      for (const student of students as any[]) {
+      for (const student of students) {
         const a = student.assignments?.find(
-          (item: any) => item.assignmentNumber === assignmentNumber
+          (item: StudentAssignment) => item.assignmentNumber === assignmentNumber
         );
         if (!a) continue;
 
-        const isSub =
-          a.status === 'SUBMITTED' ||
-          a.status === 'COMPLETED' ||
-          (typeof a.marks === 'number' && !Number.isNaN(a.marks));
-
-        if (!isSub) continue;
+        if (!isAssignmentSubmitted(a)) continue;
 
         submittedCount++;
         const submissionTime = a.date ? new Date(a.date).getTime() : Number.NaN;
@@ -248,9 +252,9 @@ export async function GET(request: NextRequest) {
     const stats = {
       totalStudents: students.length,
       activeStudents: students.filter(
-        (student: any) => !['Dropped', 'Completed'].includes(student.currentStatus)
+        (student) => !['Dropped', 'Completed'].includes(getCurrentStatus(student) || '')
       ).length,
-      onTrackStudents: students.filter((student: any) => student.currentStatus === 'On Track')
+      onTrackStudents: students.filter((student) => getCurrentStatus(student) === 'On Track')
         .length,
       atRiskStudents: failingStudents.length,
       completedStudents: completedStudentsCount,
@@ -267,7 +271,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Trim students down to only what is needed for assignment stats charts
-    const lightweightStudents = students.map((s: any) => ({
+    const lightweightStudents = students.map((s) => ({
       _id: s._id,
       lastCompletedAssignment: s.lastCompletedAssignment,
     }));

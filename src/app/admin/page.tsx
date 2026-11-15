@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentSession, hasAdminPrivileges } from '@/lib/auth-utils';
+import { getCurrentSession, hasAdminPrivileges, isSuperAdminEmail } from '@/lib/auth-utils';
 import { AdminClient } from '@/components/Admin/AdminClient';
 import { Metadata } from 'next';
 
@@ -22,7 +22,12 @@ export default async function AdminPage() {
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <AdminClient />
+      <AdminClient
+        isSuperAdmin={
+          isSuperAdminEmail(session.user.email) ||
+          session.user.role?.toLowerCase() === 'super_admin'
+        }
+      />
     </div>
   );
 }

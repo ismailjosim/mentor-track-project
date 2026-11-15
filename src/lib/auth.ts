@@ -9,6 +9,15 @@ const uri = env.MONGODB_URI;
 const dbName = env.MONGODB_DB_NAME;
 const googleClientId = env.BETTER_AUTH_GOOGLE_CLIENT_ID;
 const googleClientSecret = env.BETTER_AUTH_GOOGLE_CLIENT_SECRET;
+const authSecret =
+  env.BETTER_AUTH_SECRET ??
+  (env.NODE_ENV === 'production'
+    ? undefined
+    : 'development_fallback_secret_at_least_32_chars_long');
+
+if (!authSecret) {
+  throw new Error('BETTER_AUTH_SECRET is required in production.');
+}
 
 const globalForMongo = globalThis as typeof globalThis & {
   betterAuthMongoClient?: MongoClient;
@@ -36,7 +45,7 @@ export const auth = betterAuth({
           },
         }
       : {},
-  secret: env.BETTER_AUTH_SECRET || 'development_fallback_secret_at_least_32_chars_long',
+  secret: authSecret,
   trustedOrigins: [env.BETTER_AUTH_URL, env.NEXT_PUBLIC_AUTH_URL, env.NEXT_PUBLIC_API_URL].filter(
     Boolean
   ) as string[],

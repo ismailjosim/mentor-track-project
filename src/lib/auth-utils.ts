@@ -1,12 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { auth } from '@/lib/auth';
 import { UnauthorizedError } from '@/lib/errors';
+import { env } from '@/lib/env';
 
-export const SUPER_ADMIN_EMAILS = ['ismailjosim99@gmail.com'];
+export const SUPER_ADMIN_EMAILS = env.SUPER_ADMIN_EMAILS.split(',')
+  .map((email) => email.toLowerCase().trim())
+  .filter(Boolean);
 
 export function isSuperAdminEmail(email?: string | null): boolean {
   if (!email) return false;
@@ -26,37 +28,35 @@ export function hasAdminPrivileges(
  * Pure read, memoized session retrieval per request lifecycle (Rule 19.2)
  */
 export const getCurrentUserId = cache(async (): Promise<string | null> => {
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-    return session?.user?.id ?? null;
-  } catch {
-    return null;
-  }
+  return session?.user?.id ?? null;
 });
 
 /**
  * Pure read, memoized full session retrieval
  */
 export const getCurrentSession = cache(async () => {
-  try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
 
-    if (session?.user) {
-      if (isSuperAdminEmail(session.user.email)) {
-        (session.user as any).role = 'super_admin';
-      }
-    }
-
+  if (!session?.user || !isSuperAdminEmail(session.user.email)) {
     return session ?? null;
-  } catch {
-    return null;
   }
+
+  return {
+    ...session,
+    user: {
+      ...session.user,
+      role: 'super_admin',
+    },
+  };
 });
+
+type AuthSessionUser = NonNullable<Awaited<ReturnType<typeof getCurrentSession>>>['user'];
 
 /**
  * Asserts authentication for server actions / services, throwing typed UnauthorizedError.
@@ -99,7 +99,7 @@ export async function requireCurrentUserId(): Promise<
  * Requires super_admin or admin role for system administration.
  */
 export async function requireAdminUser(): Promise<
-  { user: any; response: null } | { user: null; response: NextResponse }
+  { user: AuthSessionUser; response: null } | { user: null; response: NextResponse }
 > {
   const session = await getCurrentSession();
 

@@ -5,6 +5,7 @@ import { Eye, Trash2 } from 'lucide-react';
 import type { StudentWithRelations } from '@/types';
 import { PAGE_ROUTES } from '@/lib/constants';
 import { getStatusBadgeClass, getLastAssignmentNumber } from '@/lib/ui-helpers';
+import { isAssignmentCompleted, isAssignmentSubmitted } from '@/lib/student-progress';
 import { StudentAvatar } from './StudentAvatar';
 
 interface StudentsTableRowProps {
@@ -23,11 +24,7 @@ export function StudentsTableRow({
   onToggleSelect,
 }: StudentsTableRowProps) {
   // Calculate true completed assignments (marks > 0 or status COMPLETED)
-  const completedAssignments = (s.assignments || []).filter(
-    (a) =>
-      a.status === 'COMPLETED' ||
-      (typeof a.marks === 'number' && !Number.isNaN(a.marks) && a.marks > 0)
-  );
+  const completedAssignments = (s.assignments || []).filter(isAssignmentCompleted);
   const maxCompletedFromAssignments =
     completedAssignments.length > 0
       ? Math.max(...completedAssignments.map((a) => a.assignmentNumber ?? a.assignment ?? 0))
@@ -39,19 +36,14 @@ export function StudentsTableRow({
   const pct = lastDone * 10;
 
   // Determine last submitted assignment (student-wise)
-  const submittedAssignments = (s.assignments || []).filter(
-    (a) =>
-      a.status === 'COMPLETED' ||
-      a.status === 'SUBMITTED' ||
-      (typeof a.marks === 'number' && !Number.isNaN(a.marks))
-  );
+  const submittedAssignments = (s.assignments || []).filter(isAssignmentSubmitted);
 
   const maxFromAssignments =
     submittedAssignments.length > 0
       ? Math.max(...submittedAssignments.map((a) => a.assignmentNumber ?? a.assignment ?? 0))
       : 0;
-  const bestLastNum = Math.max(maxFromAssignments, lastDone);
-  const lastSubmitted = bestLastNum > 0 ? `A-${String(bestLastNum).padStart(2, '0')}` : '—';
+  const lastSubmitted =
+    maxFromAssignments > 0 ? `A-${String(maxFromAssignments).padStart(2, '0')}` : '—';
 
   // Calculate average marks across graded assignments
   const gradedAssignments = (s.assignments || []).filter(

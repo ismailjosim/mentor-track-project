@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { updateOverdueStatus } from '@/lib/follow-up-logic';
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, getPaginationParams } from '@/lib/utils';
 import FollowUp from '@/models/FollowUp';
@@ -23,9 +22,6 @@ export async function GET(request: NextRequest) {
     const daysAhead = parseInt(searchParams.get('daysAhead') || '7');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '20');
-
-    // Update overdue status
-    await updateOverdueStatus(userId);
 
     const { skip } = getPaginationParams(page, limit);
 
