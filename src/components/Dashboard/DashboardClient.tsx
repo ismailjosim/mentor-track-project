@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardStats } from './DashboardStats';
-import { FailingStudentsTable } from './FailingStudentsTable';
 import { CallQueue } from './CallQueue';
 import { SubmissionDistribution } from './SubmissionDistribution';
 import { AssignmentCompletionStats } from './AssignmentCompletionStats';
@@ -43,8 +42,6 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
   const { selectedBatch, setSelectedBatch } = useBatch();
   const selectedCohort = selectedBatch;
 
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [failingPage, setFailingPage] = useState(1);
   const [callQueuePage, setCallQueuePage] = useState(1);
 
   // TanStack Query for dashboard overview
@@ -69,18 +66,6 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
     staleTime: 60 * 1000,
   });
 
-  // Query for paginated failing students beyond page 1
-  const { data: paginatedFailing, isLoading: isFailingLoading } = useQuery({
-    queryKey: ['dashboard-failing', selectedCohort, failingPage],
-    queryFn: async () => {
-      const res = await dashboardApi.getFailingStudents(failingPage, 10, selectedCohort);
-      if (res.error) throw new Error(res.error);
-      return (res.data as any) || {};
-    },
-    enabled: failingPage > 1,
-    staleTime: 60 * 1000,
-  });
-
   // Query for paginated call queue beyond page 1
   const { data: paginatedCallQueue, isLoading: isCallQueueLoading } = useQuery({
     queryKey: ['dashboard-call-queue', selectedCohort, callQueuePage],
@@ -97,15 +82,6 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
   const stats = overview?.stats || null;
   const allStudents = overview?.students || [];
 
-  const failingStudents: StudentWithRelations[] =
-    failingPage === 1 ? overview?.failingStudents || [] : paginatedFailing?.data || [];
-
-  const failingTotalPages =
-    failingPage === 1 ? overview?.failingPagination?.pages || 1 : paginatedFailing?.totalPages || 1;
-
-  const failingTotalCount =
-    failingPage === 1 ? overview?.failingPagination?.total || 0 : paginatedFailing?.total || 0;
-
   const callQueueStudents: StudentWithRelations[] =
     callQueuePage === 1 ? overview?.callQueue || [] : paginatedCallQueue?.data || [];
 
@@ -120,14 +96,12 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
       : paginatedCallQueue?.pagination?.total || 0;
 
   const handleCohortChange = (newCohort: string) => {
-    setFailingPage(1);
     setCallQueuePage(1);
     setSelectedBatch(newCohort);
   };
 
   const handleRefresh = async () => {
     try {
-      setFailingPage(1);
       setCallQueuePage(1);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['dashboard-overview', selectedCohort] }),
@@ -165,11 +139,6 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
     return <DashboardSkeleton />;
   }
 
-  const filteredFailingStudents =
-    statusFilter === 'all'
-      ? failingStudents
-      : failingStudents.filter((s) => s.currentStatus === statusFilter);
-
   const errorMessage = overviewError instanceof Error ? overviewError.message : null;
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
 
@@ -200,58 +169,30 @@ export function DashboardClient({ initialData }: DashboardClientProps = {}) {
 
       {stats && <DashboardStats stats={stats} />}
 
-      <CallStatisticsChart cohort={selectedCohort} />
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <div className="xl:col-span-7">
+          {allStudents.length > 0 && (
+            <SubmissionDistribution students={allStudents} stats={overview?.assignmentStats} />
+          )}
+        </div>
+        <div className="xl:col-span-5">
+          <CallStatisticsChart cohort={selectedCohort} />
+        </div>
+      </div>
 
       {allStudents.length > 0 && (
         <AssignmentCompletionStats students={allStudents} stats={overview?.assignmentStats} />
       )}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <div className="space-y-6 xl:col-span-2">
-          {allStudents.length > 0 && (
-            <SubmissionDistribution students={allStudents} stats={overview?.assignmentStats} />
-          )}
-
-          <div>
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-sm font-medium">Filter by Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-1.5 border border-border rounded-lg bg-background text-foreground text-sm focus:outline-hidden focus:ring-2 focus:ring-primary"
-              >
-                <option value="all">All At Risk</option>
-                <option value="At Risk">At Risk</option>
-                <option value="Behind">Behind</option>
-                <option value="Dropped">Dropped</option>
-              </select>
-              <span className="text-xs text-muted-foreground ml-auto">
-                Showing {filteredFailingStudents.length} of {failingStudents.length}
-              </span>
-            </div>
-            <FailingStudentsTable
-              students={filteredFailingStudents}
-              currentPage={failingPage}
-              totalPages={failingTotalPages}
-              totalCount={failingTotalCount}
-              onPageChange={(page) => setFailingPage(page)}
-              loading={failingPage > 1 && isFailingLoading}
-            />
-          </div>
-        </div>
-
-        <div>
-          <CallQueue
-            students={callQueueStudents}
-            onRefresh={handleRefresh}
-            currentPage={callQueuePage}
-            totalPages={callQueueTotalPages}
-            totalCount={callQueueTotalCount}
-            onPageChange={(page) => setCallQueuePage(page)}
-            loading={callQueuePage > 1 && isCallQueueLoading}
-          />
-        </div>
-      </div>
+      <CallQueue
+        students={callQueueStudents}
+        onRefresh={handleRefresh}
+        currentPage={callQueuePage}
+        totalPages={callQueueTotalPages}
+        totalCount={callQueueTotalCount}
+        onPageChange={(page) => setCallQueuePage(page)}
+        loading={isCallQueueLoading}
+      />
     </div>
   );
 }

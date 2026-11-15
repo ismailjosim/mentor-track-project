@@ -2,15 +2,15 @@
 
 import type { StudentWithRelations, AssignmentPerformanceStat } from '@/types';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
+import { Award, GraduationCap, ListChecks, TrendingUp, Users } from 'lucide-react';
 import {
   BarChart,
   Bar,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
+  LabelList,
   ResponsiveContainer,
 } from 'recharts';
 
@@ -19,17 +19,8 @@ interface SubmissionDistributionProps {
   stats?: AssignmentPerformanceStat[];
 }
 
-// Color palette for different assignment completion levels
-const COLORS = [
-  'var(--chart-1)',
-  'var(--chart-2)',
-  'var(--chart-3)',
-  'var(--chart-4)',
-  'var(--chart-5)',
-];
-
 export function SubmissionDistribution({ students, stats }: SubmissionDistributionProps) {
-  const total = students.length || 1;
+  const total = students.length;
 
   // Prepare chart data using live assignment performance stats when available
   const chartData = Array.from({ length: 10 }, (_, i) => {
@@ -85,110 +76,157 @@ export function SubmissionDistribution({ students, stats }: SubmissionDistributi
   const avgProgress =
     totalPossible > 0 ? Number(((totalCompleted / totalPossible) * 100).toFixed(1)) : 0;
 
+  const summaryCards = [
+    { label: 'Total students', value: total, icon: Users, tone: 'text-primary bg-primary/10' },
+    {
+      label: 'Completed all',
+      value: chartData[9]?.students || 0,
+      icon: Award,
+      tone: 'text-emerald-700 bg-emerald-500/10 dark:text-emerald-400',
+    },
+    {
+      label: 'Latest completed',
+      value: latestCompletedLabel,
+      icon: GraduationCap,
+      tone: 'text-amber-700 bg-amber-500/10 dark:text-amber-400',
+    },
+    {
+      label: 'Average progress',
+      value: `${avgProgress}%`,
+      icon: TrendingUp,
+      tone: 'text-violet-700 bg-violet-500/10 dark:text-violet-400',
+    },
+  ];
+
   return (
     <div className="surface overflow-hidden">
-      <div className="px-6 py-4 border-b">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-foreground">
-          Assignment Submission Overview
-        </h2>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          <span className="font-semibold text-foreground">{total}</span> students total • Showing
-          completion by assignment
-        </p>
+      <div className="flex items-center justify-between gap-3 border-b border-border/70 px-5 py-4 sm:px-6">
+        <div>
+          <h2 className="text-sm font-bold tracking-wide text-foreground">
+            Assignment Submission Overview
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Graded students by assignment · {total} students in this cohort
+          </p>
+        </div>
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-primary/15 bg-primary/5 px-3 py-1.5 text-[11px] font-semibold text-primary">
+          <ListChecks className="size-3.5" />
+          10 assignments
+        </span>
       </div>
-      <div className="p-6">
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={chartData} margin={{ top: 10, right: 15, left: 10, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--muted-foreground) / 0.15)" />
-            <XAxis
-              dataKey="name"
-              stroke="var(--border)"
-              tick={{ fill: 'var(--foreground)', fontSize: 12, fontWeight: 600 }}
-            />
-            <YAxis
-              stroke="var(--border)"
-              tick={{ fill: 'var(--foreground)', fontSize: 12 }}
-              label={{
-                value: 'Students',
-                angle: -90,
-                position: 'insideLeft',
-                style: { fill: 'var(--foreground)', fontWeight: 600, fontSize: 12 },
-              }}
-            />
-            <Tooltip
-              content={({ active, payload, label }) => {
-                if (active && payload && payload.length) {
+
+      <div className="p-4 sm:p-5">
+        <div className="rounded-2xl bg-muted/20 p-3 sm:p-4">
+          <ResponsiveContainer width="100%" height={340}>
+            <BarChart
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 4, right: 30, left: 4, bottom: 4 }}
+              barCategoryGap={10}
+            >
+              <defs>
+                <linearGradient id="assignmentCompletionFill" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="#6366f1" />
+                  <stop offset="100%" stopColor="#06b6d4" />
+                </linearGradient>
+              </defs>
+              <CartesianGrid
+                horizontal={false}
+                stroke="hsl(var(--muted-foreground) / 0.12)"
+                strokeDasharray="3 5"
+              />
+              <XAxis
+                type="number"
+                domain={[0, Math.max(total, 1)]}
+                allowDecimals={false}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                width={58}
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: 'var(--foreground)', fontSize: 11, fontWeight: 600 }}
+              />
+              <Tooltip
+                cursor={{ fill: 'hsl(var(--primary) / 0.05)' }}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
                   const entry = payload[0].payload;
                   return (
-                    <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xl backdrop-blur-md text-xs space-y-1">
-                      <p className="font-bold text-foreground text-sm border-b border-border/40 pb-1">
-                        {label} Overview
+                    <div className="min-w-44 rounded-xl border border-border bg-card p-3 text-xs shadow-xl">
+                      <p className="mb-2 border-b border-border/70 pb-2 font-bold text-foreground">
+                        {entry.name}
                       </p>
-                      <p className="text-foreground flex items-center justify-between gap-4">
-                        <span>Completed (&gt;0):</span>
-                        <span className="font-bold text-primary">
-                          {entry.students} ({entry.percentage}%)
-                        </span>
-                      </p>
-                      <p className="text-muted-foreground flex items-center justify-between gap-4">
-                        <span>&gt; 50% Marks:</span>
-                        <span className="font-semibold text-blue-500">
-                          {entry.above50} ({entry.above50Pct}%)
-                        </span>
-                      </p>
-                      <p className="text-muted-foreground flex items-center justify-between gap-4">
-                        <span>Total Submitted:</span>
-                        <span className="font-semibold text-foreground">{entry.submitted}</span>
-                      </p>
+                      <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Graded students</span>
+                        <strong>{entry.students}</strong>
+                      </div>
+                      <div className="mt-1 flex justify-between gap-4">
+                        <span className="text-muted-foreground">Cohort rate</span>
+                        <strong>{entry.percentage}%</strong>
+                      </div>
+                      <div className="mt-1 flex justify-between gap-4">
+                        <span className="text-muted-foreground">Total submitted</span>
+                        <strong>{entry.submitted}</strong>
+                      </div>
+                      <div className="mt-1 flex justify-between gap-4">
+                        <span className="text-muted-foreground">&gt;50% marks</span>
+                        <strong>{entry.above50}</strong>
+                      </div>
                       {(entry.zeroMarks > 0 || entry.pending > 0) && (
-                        <p className="text-muted-foreground flex items-center justify-between gap-4 pt-1 border-t border-border/20 text-[11px]">
-                          <span>0 Marks / Pending:</span>
-                          <span className="font-semibold text-amber-500">
+                        <div className="mt-2 flex justify-between gap-4 border-t border-border/70 pt-2 text-muted-foreground">
+                          <span>0 marks / pending</span>
+                          <strong className="text-foreground">
                             {entry.zeroMarks} / {entry.pending}
-                          </span>
-                        </p>
+                          </strong>
+                        </div>
                       )}
                     </div>
                   );
-                }
-                return null;
-              }}
-              cursor={{ fill: 'rgba(255, 255, 255, 0.05)' }}
-            />
-            <Legend
-              wrapperStyle={{ paddingTop: '16px' }}
-              formatter={(value) => (
-                <span className="text-xs font-medium text-foreground">{value}</span>
-              )}
-            />
-            <Bar dataKey="students" radius={[8, 8, 0, 0]} name="Completed">
-              {chartData.map((_, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+                }}
+              />
+              <Bar
+                dataKey="students"
+                name="Graded students"
+                fill="url(#assignmentCompletionFill)"
+                radius={[0, 8, 8, 0]}
+                maxBarSize={22}
+              >
+                <LabelList
+                  dataKey="students"
+                  position="right"
+                  fill="var(--muted-foreground)"
+                  fontSize={10}
+                  fontWeight={600}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
-        {/* Stats Summary */}
-        <div className="mt-6 grid grid-cols-2 gap-4 text-xs">
-          <div className="p-3 bg-muted/30 rounded-lg">
-            <p className="text-muted-foreground font-medium mb-1">Total Students</p>
-            <p className="text-xl font-bold">{total}</p>
-          </div>
-          <div className="rounded-xl border border-success-border bg-success-soft p-3">
-            <p className="mb-1 font-medium text-success-foreground">Completed All (A-10)</p>
-            <p className="text-xl font-bold text-success-foreground">
-              {chartData[9]?.students || 0}
-            </p>
-          </div>
-          <div className="rounded-xl border border-warning-border bg-warning-soft p-3">
-            <p className="mb-1 font-medium text-warning-foreground">Latest Completed</p>
-            <p className="text-lg font-bold text-warning-foreground">{latestCompletedLabel}</p>
-          </div>
-          <div className="p-3 bg-muted/30 rounded-lg">
-            <p className="text-muted-foreground font-medium mb-1">Average Progress</p>
-            <p className="text-xl font-bold">{avgProgress}%</p>
-          </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+          {summaryCards.map(({ label, value, icon: Icon, tone }) => (
+            <div
+              key={label}
+              className="flex items-center gap-3 rounded-xl border border-border/70 bg-card/70 p-3.5"
+            >
+              <div
+                className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${tone}`}
+              >
+                <Icon className="size-4.5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
+                <p className="mt-0.5 truncate text-lg font-bold tracking-tight text-foreground">
+                  {value}
+                </p>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

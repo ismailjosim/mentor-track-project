@@ -95,24 +95,38 @@ export function DashboardStats({ stats }: DashboardStatsProps) {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 2xl:grid-cols-8">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {cards.map(({ title, value, desc, icon: Icon, color, bg }) => (
         <div
           key={title}
-          className="surface group flex min-h-38 flex-col justify-between p-4.5 transition duration-200 hover:-translate-y-1 hover:border-primary/25"
+          className="surface relative overflow-hidden border-border/70 p-5 transition-colors hover:border-primary/30"
         >
           <div
-            className={`${bg} ${color} flex size-9 items-center justify-center rounded-xl border shrink-0`}
-          >
-            <Icon className="w-4.5 h-4.5" />
+            aria-hidden="true"
+            className="absolute -right-8 -top-8 size-24 rounded-full bg-primary/[0.035]"
+          />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {title}
+              </p>
+              <p className="mt-3 text-3xl font-bold tracking-[-0.04em] text-foreground">{value}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">{desc}</p>
+            </div>
+            <div
+              className={`${bg} ${color} flex size-11 shrink-0 items-center justify-center rounded-2xl border`}
+            >
+              <Icon className="size-5" />
+            </div>
           </div>
-          <div className="mt-2">
-            <p className="text-2xl lg:text-3xl font-bold tracking-[-0.04em]">{value}</p>
-            <p className="mt-1 text-xs font-semibold text-foreground line-clamp-1">{title}</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground line-clamp-1">
-              {desc}
-            </p>
-          </div>
+          {title === 'Cohort Progress' && (
+            <div className="relative mt-4 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          )}
         </div>
       ))}
     </div>

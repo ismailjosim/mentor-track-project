@@ -67,7 +67,7 @@ export function CallQueue({
         </Badge>
       </CardHeader>
 
-      <div className="flex-1 overflow-y-auto divide-y divide-border">
+      <div className="max-h-[38rem] flex-1 divide-y divide-border overflow-y-auto">
         {loading ? (
           Array.from({ length: 5 }).map((_, idx) => (
             <div key={`skeleton-${idx}`} className="px-5 py-4 flex items-center justify-between">
