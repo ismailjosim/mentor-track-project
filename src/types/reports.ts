@@ -82,6 +82,34 @@ export interface GeneratedReport {
   callHistory?: CallHistoryReportData;
 }
 
+export interface WeeklyUpdateReportData {
+  generatedAt: string;
+  periodStart: string;
+  periodEnd: string;
+  selectedCohort: string;
+  currentAssignment: number;
+  totalStudents: number;
+  calls: {
+    totalCalls: number;
+    uniqueStudentsCalled: number;
+    receivedCalls: number;
+  };
+  topProblems: {
+    issue: string;
+    calls: number;
+    students: number;
+  }[];
+  assignments: {
+    assignmentNumber: number;
+    assignmentKey: string;
+    submitted: number;
+    previousSubmitted: number;
+    newSubmissions: number;
+    relativeChangePercent: number | null;
+    cohortIncreasePercent: number;
+  }[];
+}
+
 export const REPORT_SECTION_OPTIONS = [
   {
     key: 'summary',

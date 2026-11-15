@@ -7,6 +7,7 @@ import {
   MilestoneTable,
   MilestoneTargetCheck,
   MilestoneActionLog,
+  WeeklyUpdatePanel,
   type MilestoneWeeklyReportProps,
 } from './milestone';
 
@@ -42,6 +43,13 @@ export function MilestoneWeeklyReport({ cohort = 'all' }: MilestoneWeeklyReportP
         isExporting={isExporting}
         onCopy={handleCopyToClipboard}
         onExport={handleExportExcel}
+      />
+
+      <WeeklyUpdatePanel
+        key={cohort}
+        cohort={cohort}
+        reportTitle={reportTitle}
+        milestones={computedMilestones}
       />
 
       {/* Main Spreadsheet Container */}

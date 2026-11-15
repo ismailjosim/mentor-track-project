@@ -5,3 +5,4 @@ export * from './MilestoneSheetHeader';
 export * from './MilestoneTable';
 export * from './MilestoneTargetCheck';
 export * from './MilestoneActionLog';
+export * from './WeeklyUpdatePanel';

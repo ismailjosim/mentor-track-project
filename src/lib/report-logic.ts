@@ -2,6 +2,7 @@
 import mongoose from 'mongoose';
 import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
+import { calculateWeeklyAssignmentChange, getTopCallIssues } from '@/lib/weekly-update';
 import {
   format,
   subWeeks,
@@ -487,6 +488,86 @@ export async function getCallHistoryReport(ownerId?: string, cohort?: string) {
     },
     weekly,
     monthly,
+  };
+}
+
+export async function getWeeklyUpdateReport(
+  ownerId: string | undefined,
+  cohort: string | undefined,
+  currentAssignment: number,
+  now = new Date()
+) {
+  const periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const studentFilter = buildCohortFilter(ownerId, cohort);
+  const students = await Student.find(studentFilter).select('_id assignments').lean();
+  const studentIds = students.map((student: any) => String(student._id));
+  const totalStudents = students.length;
+  const assignments = Array.from(
+    { length: Math.min(3, currentAssignment) },
+    (_, index) => currentAssignment - index
+  ).map((assignmentNumber) => {
+    let submitted = 0;
+    let newSubmissions = 0;
+
+    for (const student of students as any[]) {
+      const assignment = student.assignments?.find(
+        (item: any) => item.assignmentNumber === assignmentNumber
+      );
+      if (
+        !assignment ||
+        !(['SUBMITTED', 'COMPLETED'].includes(assignment.status) || assignment.marks != null)
+      ) {
+        continue;
+      }
+
+      submitted += 1;
+      const submissionDate = assignment.date ? new Date(assignment.date).getTime() : null;
+      if (
+        submissionDate !== null &&
+        submissionDate >= periodStart.getTime() &&
+        submissionDate <= now.getTime()
+      ) {
+        newSubmissions += 1;
+      }
+    }
+
+    return {
+      assignmentNumber,
+      assignmentKey: `A-${String(assignmentNumber).padStart(2, '0')}`,
+      submitted,
+      ...calculateWeeklyAssignmentChange(submitted, newSubmissions, totalStudents),
+    };
+  });
+
+  const callFilter: any = {
+    studentId: {
+      $in: studentIds.flatMap((id) =>
+        mongoose.Types.ObjectId.isValid(id) ? [new mongoose.Types.ObjectId(id), id] : [id]
+      ),
+    },
+    date: { $gte: periodStart, $lte: now },
+  };
+  if (ownerId) callFilter.ownerId = ownerId;
+
+  const logs = await CallLog.find(callFilter).select('date status issues studentId').lean();
+  const uniqueStudentsCalled = new Set(logs.map((log: any) => String(log.studentId))).size;
+
+  return {
+    generatedAt: now.toISOString(),
+    periodStart: periodStart.toISOString(),
+    periodEnd: now.toISOString(),
+    selectedCohort: cohort || 'all',
+    currentAssignment,
+    totalStudents,
+    calls: {
+      totalCalls: logs.length,
+      uniqueStudentsCalled,
+      receivedCalls: logs.filter((log: any) => log.status === 'RECEIVED').length,
+    },
+    topProblems: getTopCallIssues(
+      logs.map((log: any) => ({ issues: log.issues, studentId: String(log.studentId) }))
+    ),
+    assignments,
   };
 }
 
