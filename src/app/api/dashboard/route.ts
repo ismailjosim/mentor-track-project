@@ -6,6 +6,8 @@ import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError } from '@/lib/utils';
 import Student from '@/models/Student';
 import { Settings } from '@/models/Settings';
+import { ASSIGNMENT_TARGET_PERCENTAGES } from '@/lib/assignment-targets';
+import { getTuesdayWeeklyPeriodStart } from '@/lib/weekly-update';
 
 const PAGE_SIZE = 10;
 
@@ -129,6 +131,8 @@ export async function GET(request: NextRequest) {
 
     // Detailed assignment performance stats for A-01..A-10
     const totalStudentsCount = students.length;
+    const now = new Date();
+    const tuesdayPeriodStart = getTuesdayWeeklyPeriodStart(now);
     const assignmentStats = Array.from({ length: 10 }, (_, idx) => {
       const assignmentNumber = idx + 1;
       const assignmentKey = `A-${String(assignmentNumber).padStart(2, '0')}`;
@@ -141,6 +145,7 @@ export async function GET(request: NextRequest) {
       let pendingCount = 0;
       let pendingOrZeroCount = 0;
       let totalMarksSum = 0;
+      let newThisWeekSubmittedCount = 0;
 
       for (const student of students as any[]) {
         const a = student.assignments?.find(
@@ -156,6 +161,14 @@ export async function GET(request: NextRequest) {
         if (!isSub) continue;
 
         submittedCount++;
+        const submissionTime = a.date ? new Date(a.date).getTime() : Number.NaN;
+        if (
+          Number.isFinite(submissionTime) &&
+          submissionTime >= tuesdayPeriodStart.getTime() &&
+          submissionTime <= now.getTime()
+        ) {
+          newThisWeekSubmittedCount++;
+        }
         const marks = typeof a.marks === 'number' && !Number.isNaN(a.marks) ? a.marks : undefined;
         const maxMarks = a.maxMarks || 60;
 
@@ -194,6 +207,13 @@ export async function GET(request: NextRequest) {
       const gradedRate =
         submittedCount > 0 ? Number(((gradedCount / submittedCount) * 100).toFixed(1)) : 0;
       const avgMarks = gradedCount > 0 ? Number((totalMarksSum / gradedCount).toFixed(1)) : null;
+      const targetPercentage = ASSIGNMENT_TARGET_PERCENTAGES[assignmentNumber];
+      const targetCount =
+        targetPercentage === null
+          ? null
+          : Math.round((totalStudentsCount * targetPercentage) / 100);
+      const targetGapPercentage =
+        targetPercentage === null ? null : Number((submissionRate - targetPercentage).toFixed(1));
 
       return {
         assignmentNumber,
@@ -201,6 +221,13 @@ export async function GET(request: NextRequest) {
         totalStudents: totalStudentsCount,
         submittedCount,
         submissionRate,
+        previousWeekSubmittedCount: Math.max(0, submittedCount - newThisWeekSubmittedCount),
+        newThisWeekSubmittedCount,
+        targetPercentage,
+        targetCount,
+        actualCompletionRate: submissionRate,
+        targetGapPercentage,
+        studentsToTarget: targetCount === null ? null : Math.max(0, targetCount - submittedCount),
         gradedCount,
         gradedRate,
         zeroMarksCount,
@@ -213,6 +240,7 @@ export async function GET(request: NextRequest) {
         fullMarksRate,
         above50Count,
         above50Rate,
+        lowOrZeroCount: Math.max(0, gradedCount - above50Count + zeroMarksCount),
         avgMarks,
       };
     });

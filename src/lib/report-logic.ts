@@ -2,7 +2,11 @@
 import mongoose from 'mongoose';
 import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
-import { calculateWeeklyAssignmentChange, getTopCallIssues } from '@/lib/weekly-update';
+import {
+  calculateWeeklyAssignmentChange,
+  getTopCallIssues,
+  getTuesdayWeeklyPeriodStart,
+} from '@/lib/weekly-update';
 import {
   format,
   subWeeks,
@@ -497,7 +501,7 @@ export async function getWeeklyUpdateReport(
   currentAssignment: number,
   now = new Date()
 ) {
-  const periodStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const periodStart = getTuesdayWeeklyPeriodStart(now);
   const studentFilter = buildCohortFilter(ownerId, cohort);
   const students = await Student.find(studentFilter).select('_id assignments').lean();
   const studentIds = students.map((student: any) => String(student._id));

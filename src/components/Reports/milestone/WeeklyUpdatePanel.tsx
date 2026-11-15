@@ -5,6 +5,7 @@ import { useMutation } from '@tanstack/react-query';
 import { AlertCircle, Download, FileText, LoaderCircle, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
+import { ASSIGNMENT_TARGET_PERCENTAGES } from '@/lib/assignment-targets';
 import { calculateWeeklyAssignmentChange } from '@/lib/weekly-update';
 import type { WeeklyUpdateReportData } from '@/types/reports';
 import type { ComputedMilestoneRow } from './types';
@@ -50,23 +51,27 @@ export function WeeklyUpdatePanel({ cohort, reportTitle, milestones }: WeeklyUpd
   const selectedMilestone = milestones.find(
     (milestone) => Number(milestone.milestone.match(/\d+/)?.[0]) === currentAssignment
   );
-  const targetPct = selectedMilestone?.targetPct ?? 70;
+  const targetPct =
+    selectedMilestone?.targetPct ?? ASSIGNMENT_TARGET_PERCENTAGES[currentAssignment] ?? null;
   const currentAssignmentReport = report?.assignments.find(
     (assignment) => assignment.assignmentNumber === currentAssignment
   );
-  const targetStudents = report ? Math.round((report.totalStudents * targetPct) / 100) : 0;
-  const remaining = currentAssignmentReport
-    ? Math.max(0, targetStudents - currentAssignmentReport.submitted)
-    : 0;
+  const targetStudents =
+    report && targetPct !== null ? Math.round((report.totalStudents * targetPct) / 100) : null;
+  const remaining =
+    currentAssignmentReport && targetStudents !== null
+      ? Math.max(0, targetStudents - currentAssignmentReport.submitted)
+      : null;
   const targetProgress =
-    targetStudents > 0 && currentAssignmentReport
+    targetStudents !== null && targetStudents > 0 && currentAssignmentReport
       ? Math.min(100, (currentAssignmentReport.submitted / targetStudents) * 100)
       : 0;
   const actualCohortPercent =
     report && report.totalStudents > 0 && currentAssignmentReport
       ? Number(((currentAssignmentReport.submitted / report.totalStudents) * 100).toFixed(1))
       : 0;
-  const targetGap = Number((actualCohortPercent - targetPct).toFixed(1));
+  const targetGap =
+    targetPct === null ? null : Number((actualCohortPercent - targetPct).toFixed(1));
   const remainingTargetPercent = Number(Math.max(0, 100 - targetProgress).toFixed(1));
 
   const handlePdfDownload = () => {
@@ -107,6 +112,12 @@ export function WeeklyUpdatePanel({ cohort, reportTitle, milestones }: WeeklyUpd
           .join('')
       : '<li class="empty">No student problems were recorded in call responses this week.</li>';
     const assignmentTargetProgress = `${targetProgress.toFixed(1)}%`;
+    const targetSection =
+      targetPct === null
+        ? `<div class="target-line"><span>Target not set</span><strong>Actual: ${actualCohortPercent}% of cohort</strong></div>`
+        : `<div class="target-line"><span>Target: ${targetPct}% (${targetStudents} students)</span><strong>Actual: ${actualCohortPercent}% · gap ${targetGap !== null && targetGap > 0 ? '+' : ''}${targetGap}%</strong></div>
+            <div class="track"><div class="fill" style="width:${targetProgress}%"></div></div>
+            <div class="target-line"><span>${currentAssignmentReport.submitted} completed · ${assignmentTargetProgress} of target</span><strong>Remaining: ${remaining} students · ${remainingTargetPercent}%</strong></div>`;
     const cohortName =
       report.selectedCohort === 'all' ? 'All cohorts' : `Cohort ${report.selectedCohort}`;
 
@@ -150,16 +161,14 @@ export function WeeklyUpdatePanel({ cohort, reportTitle, milestones }: WeeklyUpd
         </div>
         <section><h2>Assignment ${currentAssignment} target progress</h2>
           <div class="target">
-            <div class="target-line"><span>Target: ${targetPct}% (${targetStudents} students)</span><strong>Actual: ${actualCohortPercent}% · gap ${targetGap > 0 ? '+' : ''}${targetGap}%</strong></div>
-            <div class="track"><div class="fill" style="width:${targetProgress}%"></div></div>
-            <div class="target-line"><span>${currentAssignmentReport.submitted} completed · ${assignmentTargetProgress} of target</span><strong>Remaining: ${remaining} students · ${remainingTargetPercent}%</strong></div>
+            ${targetSection}
           </div>
         </section>
         <section><h2>Last three assignments · weekly comparison</h2>
           <table><thead><tr><th>Assignment</th><th>Previous total</th><th>Current total</th><th>New this week</th><th>Growth vs previous</th><th>Cohort increase</th></tr></thead><tbody>${rows}</tbody></table>
         </section>
         <section><h2>Top student problems from call responses</h2><ul>${problems}</ul></section>
-        <p class="note">Weekly comparison uses assignment submission dates from the latest 7 days. Submissions without a recorded date are included in the previous total. Growth vs previous is the relative increase from the previous cumulative total.</p>
+        <p class="note">Weekly comparison uses assignment submission dates from the Tuesday checkpoint. Submissions without a recorded date are included in the previous total. Growth vs previous is the relative increase from the previous cumulative total.</p>
         <footer>Generated ${formatDate(report.generatedAt)} · Mentor Track</footer>
         <script>window.onload = () => setTimeout(() => window.print(), 250);</script>
       </body></html>`);
@@ -175,8 +184,8 @@ export function WeeklyUpdatePanel({ cohort, reportTitle, milestones }: WeeklyUpd
             <h3 className="font-bold">Weekly Update Report</h3>
           </div>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
-            গত ৭ দিনের call summary, response-এ বলা প্রধান সমস্যা এবং assignment submission তুলনা
-            তৈরি করুন।
+            মঙ্গলবারের checkpoint থেকে call summary, response-এ বলা প্রধান সমস্যা এবং assignment
+            submission তুলনা তৈরি করুন।
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -292,30 +301,44 @@ export function WeeklyUpdatePanel({ cohort, reportTitle, milestones }: WeeklyUpd
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs text-muted-foreground">
-                      Target {targetPct}% · {targetStudents} students
+                      {targetPct === null
+                        ? 'Target not set'
+                        : `Target ${targetPct}% · ${targetStudents} students`}
                     </p>
                     <p className="mt-1 text-xl font-bold">
                       {currentAssignmentReport.submitted} students completed
                     </p>
                   </div>
                   <span className="rounded-full bg-background px-2.5 py-1 text-xs font-bold text-primary">
-                    {targetProgress.toFixed(1)}% of target
+                    {targetPct === null
+                      ? 'Target not set'
+                      : `${targetProgress.toFixed(1)}% of target`}
                   </span>
                 </div>
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-primary/15">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${targetProgress}%` }}
-                  />
-                </div>
+                {targetPct !== null && (
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-primary/15">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${targetProgress}%` }}
+                    />
+                  </div>
+                )}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Cohort completion {actualCohortPercent}% · target gap{' '}
-                  <strong className={targetGap < 0 ? 'text-destructive' : 'text-emerald-600'}>
-                    {targetGap > 0 ? '+' : ''}
-                    {targetGap}%
-                  </strong>
-                  . Target পূরণে আরও <strong className="text-foreground">{remaining}</strong> জন
-                  বাকি ({remainingTargetPercent}% target)।
+                  Cohort completion {actualCohortPercent}%.
+                  {targetGap !== null ? (
+                    <>
+                      {' '}
+                      Target gap{' '}
+                      <strong className={targetGap < 0 ? 'text-destructive' : 'text-emerald-600'}>
+                        {targetGap > 0 ? '+' : ''}
+                        {targetGap}%
+                      </strong>
+                      . Target পূরণে আরও <strong className="text-foreground">{remaining}</strong> জন
+                      বাকি ({remainingTargetPercent}% target)।
+                    </>
+                  ) : (
+                    ' Target not set; shortfall is not calculated.'
+                  )}
                 </p>
               </div>
             </div>

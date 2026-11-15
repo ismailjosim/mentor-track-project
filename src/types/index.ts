@@ -49,6 +49,13 @@ export interface AssignmentPerformanceStat {
   totalStudents: number;
   submittedCount: number;
   submissionRate: number;
+  previousWeekSubmittedCount?: number;
+  newThisWeekSubmittedCount?: number;
+  targetPercentage?: number | null;
+  targetCount?: number | null;
+  actualCompletionRate?: number;
+  targetGapPercentage?: number | null;
+  studentsToTarget?: number | null;
   gradedCount: number;
   gradedRate: number;
   pendingOrZeroCount: number;
@@ -61,6 +68,7 @@ export interface AssignmentPerformanceStat {
   fullMarksRate: number;
   above50Count: number;
   above50Rate: number;
+  lowOrZeroCount?: number;
   avgMarks: number | null;
 }
 

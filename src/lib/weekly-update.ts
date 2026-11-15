@@ -1,3 +1,19 @@
+const DHAKA_OFFSET_MS = 6 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function getTuesdayWeeklyPeriodStart(now = new Date()) {
+  const dhakaNow = new Date(now.getTime() + DHAKA_OFFSET_MS);
+  const daysSinceTuesday = (dhakaNow.getUTCDay() - 2 + 7) % 7;
+  const dhakaMidnight = Date.UTC(
+    dhakaNow.getUTCFullYear(),
+    dhakaNow.getUTCMonth(),
+    dhakaNow.getUTCDate()
+  );
+  const daysBack = daysSinceTuesday === 0 ? 7 : daysSinceTuesday;
+
+  return new Date(dhakaMidnight - daysBack * DAY_MS - DHAKA_OFFSET_MS);
+}
+
 export function calculateWeeklyAssignmentChange(
   submitted: number,
   newSubmissions: number,

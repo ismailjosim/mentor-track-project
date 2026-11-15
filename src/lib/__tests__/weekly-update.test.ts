@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { calculateWeeklyAssignmentChange, getTopCallIssues } from '../weekly-update';
+import {
+  calculateWeeklyAssignmentChange,
+  getTopCallIssues,
+  getTuesdayWeeklyPeriodStart,
+} from '../weekly-update';
+
+describe('getTuesdayWeeklyPeriodStart', () => {
+  it('uses the latest Tuesday as the baseline during the week', () => {
+    expect(getTuesdayWeeklyPeriodStart(new Date('2026-11-15T08:00:00.000Z')).toISOString()).toBe(
+      '2026-11-09T18:00:00.000Z'
+    );
+  });
+
+  it('uses the previous Tuesday as the baseline on Tuesday', () => {
+    expect(getTuesdayWeeklyPeriodStart(new Date('2026-11-17T08:00:00.000Z')).toISOString()).toBe(
+      '2026-11-09T18:00:00.000Z'
+    );
+  });
+});
 
 describe('calculateWeeklyAssignmentChange', () => {
   it('calculates prior total, relative growth, and cohort percentage points', () => {

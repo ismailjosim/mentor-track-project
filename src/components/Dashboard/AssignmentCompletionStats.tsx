@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import type { StudentWithRelations, AssignmentPerformanceStat } from '@/types';
 import { getLastAssignmentNumber } from '@/lib/ui-helpers';
-import { CheckCircle2, Clock, Award, TableProperties, LayoutGrid } from 'lucide-react';
+import { LayoutGrid, TableProperties, TrendingDown, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ASSIGNMENT_TARGET_PERCENTAGES } from '@/lib/assignment-targets';
 
 interface AssignmentCompletionStatsProps {
   students?: StudentWithRelations[];
@@ -28,12 +29,24 @@ export function AssignmentCompletionStats({
           ).length;
           const pct =
             students.length > 0 ? Math.round((completedCount / students.length) * 100) : 0;
+          const targetPercentage = ASSIGNMENT_TARGET_PERCENTAGES[assignmentNum];
+          const targetCount =
+            targetPercentage === null
+              ? null
+              : Math.round((students.length * targetPercentage) / 100);
           return {
             assignmentNumber: assignmentNum,
             assignmentKey: `A-${String(assignmentNum).padStart(2, '0')}`,
             totalStudents: students.length,
             submittedCount: completedCount,
             submissionRate: pct,
+            targetPercentage,
+            targetCount,
+            actualCompletionRate: pct,
+            targetGapPercentage:
+              targetPercentage === null ? null : Number((pct - targetPercentage).toFixed(1)),
+            studentsToTarget:
+              targetCount === null ? null : Math.max(0, targetCount - completedCount),
             gradedCount: completedCount,
             gradedRate: pct,
             pendingOrZeroCount: 0,
@@ -42,6 +55,7 @@ export function AssignmentCompletionStats({
             fullMarksRate: pct,
             above50Count: completedCount,
             above50Rate: pct,
+            lowOrZeroCount: 0,
             avgMarks: null,
           };
         });
@@ -59,7 +73,7 @@ export function AssignmentCompletionStats({
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Total submissions, 100% scores, &gt;50% scores, and pending / 0 marks per assignment
+            Submission totals and new submissions use Tuesday checkpoints
           </p>
         </div>
 
@@ -91,92 +105,114 @@ export function AssignmentCompletionStats({
         {viewMode === 'cards' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
             {computedStats.map((item) => {
+              const targetIsSet = item.targetPercentage != null && item.targetCount != null;
+              const actualCompletionRate = item.actualCompletionRate ?? item.submissionRate;
+              const lowerOrZeroCount =
+                item.lowOrZeroCount ??
+                Math.max(0, item.gradedCount - item.above50Count + (item.zeroMarksCount || 0));
+
               return (
                 <div
                   key={item.assignmentNumber}
-                  className="rounded-xl border border-border/80 bg-card/60 p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md flex flex-col justify-between"
+                  className="flex flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
                 >
-                  <div className="flex items-center justify-between mb-3 border-b border-border/40 pb-2">
+                  <div className="mb-3 flex items-center justify-between border-b border-border/40 pb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-primary">
                       {item.assignmentKey}
                     </span>
-                    <span className="text-[11px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                      {item.submittedCount} Submissions
+                    <span className="text-[11px] font-semibold text-muted-foreground">
+                      Assignment
                     </span>
                   </div>
 
-                  {/* Primary highlight: >50% Marks count & rate */}
                   <div className="mb-3">
-                    <div className="flex items-baseline justify-between">
-                      <p className="text-2xl font-bold tracking-tight text-foreground">
-                        {item.above50Count}
-                      </p>
-                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                        {item.above50Rate}% (&gt;50%)
-                      </span>
+                    <p className="text-[11px] font-medium text-muted-foreground">
+                      Total submissions
+                    </p>
+                    <p className="mt-0.5 text-3xl font-bold tracking-tight text-foreground">
+                      {item.submittedCount}
+                    </p>
+                  </div>
+
+                  <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-lg bg-muted/40 p-2">
+                      <p className="text-[10px] leading-4 text-muted-foreground">Last Tuesday</p>
+                      <p className="font-bold">{item.previousWeekSubmittedCount ?? '—'}</p>
                     </div>
-                    <div className="w-full bg-muted/60 h-1.5 rounded-full overflow-hidden mt-1.5">
-                      <div
-                        className="bg-blue-600 dark:bg-blue-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, item.above50Rate)}%` }}
-                      />
+                    <div className="rounded-lg bg-emerald-500/10 p-2">
+                      <p className="text-[10px] leading-4 text-muted-foreground">New this week</p>
+                      <p className="font-bold text-emerald-700 dark:text-emerald-400">
+                        {item.newThisWeekSubmittedCount === undefined
+                          ? '—'
+                          : `+${item.newThisWeekSubmittedCount}`}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Metrics breakdown */}
-                  <div className="space-y-1.5 text-xs pt-1 border-t border-border/30">
-                    {/* 100% Marks */}
-                    <div className="flex items-center justify-between py-0.5">
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <Award className="size-3 text-emerald-500" />
-                        <span>100% Marks</span>
-                      </span>
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                        {item.fullMarksCount} ({item.fullMarksRate}%)
-                      </span>
-                    </div>
-
-                    {/* Graded (>0) */}
-                    <div className="flex items-center justify-between py-0.5">
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <CheckCircle2 className="size-3 text-teal-500" />
-                        <span>Graded (&gt;0)</span>
-                      </span>
-                      <span className="font-semibold text-foreground">
-                        {item.gradedCount} ({item.gradedRate}%)
-                      </span>
-                    </div>
-
-                    {/* 0 Marks */}
-                    <div className="flex items-center justify-between py-0.5">
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <Clock className="size-3 text-rose-500" />
-                        <span>0 Marks</span>
-                      </span>
-                      <span className="font-semibold text-rose-600 dark:text-rose-400">
-                        {item.zeroMarksCount ?? 0} ({item.zeroMarksRate ?? 0}%)
-                      </span>
-                    </div>
-
-                    {/* Pending Grading */}
-                    <div className="flex items-center justify-between py-0.5">
-                      <span className="flex items-center gap-1.5 text-muted-foreground">
-                        <Clock className="size-3 text-amber-500" />
-                        <span>Pending</span>
-                      </span>
-                      <span className="font-semibold text-amber-600 dark:text-amber-400">
-                        {item.pendingCount ?? item.pendingOrZeroCount - (item.zeroMarksCount || 0)}{' '}
-                        ({item.pendingRate ?? item.pendingOrZeroRate}%)
-                      </span>
-                    </div>
-
-                    {/* Average Marks */}
-                    {item.avgMarks !== null && (
-                      <div className="flex items-center justify-between pt-1 border-t border-border/20 text-[11px]">
-                        <span className="text-muted-foreground">Avg Score:</span>
-                        <span className="font-bold text-foreground font-mono">{item.avgMarks}</span>
+                  <div className="mb-3 rounded-lg border border-border/50 p-2.5 text-xs">
+                    {targetIsSet ? (
+                      <>
+                        <div className="flex justify-between gap-2">
+                          <span className="text-muted-foreground">Target</span>
+                          <span className="font-semibold">
+                            {item.targetPercentage}% · {item.targetCount} students
+                          </span>
+                        </div>
+                        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary"
+                            style={{ width: `${Math.min(100, actualCompletionRate)}%` }}
+                          />
+                        </div>
+                        <div className="mt-2 flex justify-between gap-2">
+                          <span className="text-muted-foreground">Actual completion</span>
+                          <span className="font-semibold">{actualCompletionRate}%</span>
+                        </div>
+                        <div className="mt-1 flex justify-between gap-2">
+                          <span className="text-muted-foreground">Gap</span>
+                          <span
+                            className={`font-semibold ${
+                              (item.targetGapPercentage ?? 0) < 0
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : 'text-emerald-600 dark:text-emerald-400'
+                            }`}
+                          >
+                            {item.targetGapPercentage != null
+                              ? `${item.targetGapPercentage > 0 ? '+' : ''}${item.targetGapPercentage}%`
+                              : '—'}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          Need {item.studentsToTarget ?? '—'} more submissions
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground">Target not set</span>
+                        <span className="font-semibold">Actual {actualCompletionRate}%</span>
                       </div>
                     )}
+                  </div>
+
+                  <div className="space-y-2 border-t border-border/30 pt-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <TrendingUp className="size-3 text-emerald-500" />
+                        <span>&gt;50% marks</span>
+                      </span>
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        {item.above50Count}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <TrendingDown className="size-3 text-rose-500" />
+                        <span>≤50% or 0 marks</span>
+                      </span>
+                      <span className="font-semibold text-rose-600 dark:text-rose-400">
+                        {lowerOrZeroCount}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
