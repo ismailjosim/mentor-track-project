@@ -15,6 +15,7 @@ import { MilestoneWeeklyReport } from './MilestoneWeeklyReport';
 import type { GeneratedReport } from '@/types/reports';
 import { TableProperties, BarChart3, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useBatch } from '@/components/providers/BatchProvider';
 
 const DEFAULT_SECTIONS = [
   'summary',
@@ -32,7 +33,7 @@ export function ReportsClient() {
   const [activeTab, setActiveTab] = useState<'weekly-milestone' | 'analytics'>('weekly-milestone');
   const [selectedSections, setSelectedSections] = useState<string[]>(DEFAULT_SECTIONS);
   const [onlyMentorshipGroup, setOnlyMentorshipGroup] = useState(false);
-  const [selectedCohort, setSelectedCohort] = useState<string>('all');
+  const { selectedBatch: selectedCohort, setSelectedBatch } = useBatch();
   const [availableCohorts, setAvailableCohorts] = useState<string[]>(['13', '14']);
   const [report, setReport] = useState<GeneratedReportWithCohorts | null>(null);
 
@@ -67,6 +68,11 @@ export function ReportsClient() {
   const handleGenerate = () => {
     if (selectedSections.length === 0) return;
     generateMutation.mutate();
+  };
+
+  const handleCohortChange = (cohort: string) => {
+    setSelectedBatch(cohort);
+    setReport(null);
   };
 
   const buildExportRows = (): Record<string, unknown>[] => {
@@ -249,7 +255,7 @@ export function ReportsClient() {
                 onlyMentorshipGroup={onlyMentorshipGroup}
                 onToggleMentorshipGroup={() => setOnlyMentorshipGroup((v) => !v)}
                 selectedCohort={selectedCohort}
-                onSelectCohort={setSelectedCohort}
+                onSelectCohort={handleCohortChange}
                 availableCohorts={availableCohorts}
                 onGenerate={handleGenerate}
                 loading={loading}

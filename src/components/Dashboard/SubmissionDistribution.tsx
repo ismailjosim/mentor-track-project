@@ -29,13 +29,13 @@ export function SubmissionDistribution({ students, stats }: SubmissionDistributi
     const stat = stats?.find((s) => s.assignmentNumber === assignmentNum);
 
     if (stat) {
-      const count = stat.gradedCount;
+      const count = stat.submittedCount;
       const pct = total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0;
       return {
         name,
-        students: count,
+        submitted: count,
+        graded: stat.gradedCount,
         percentage: pct,
-        submitted: stat.submittedCount,
         above50: stat.above50Count,
         above50Pct: stat.above50Rate,
         fullMarks: stat.fullMarksCount,
@@ -51,9 +51,9 @@ export function SubmissionDistribution({ students, stats }: SubmissionDistributi
     const pct = total > 0 ? Number(((count / total) * 100).toFixed(1)) : 0;
     return {
       name,
-      students: count,
-      percentage: pct,
       submitted: count,
+      graded: count,
+      percentage: pct,
       above50: count,
       above50Pct: pct,
       fullMarks: count,
@@ -64,7 +64,7 @@ export function SubmissionDistribution({ students, stats }: SubmissionDistributi
 
   // Calculate highest assignment index with active completed submissions
   const latestCompletedIndex = chartData.reduce(
-    (max, d, idx) => (d.students > 0 ? idx + 1 : max),
+    (max, d, idx) => (d.submitted > 0 ? idx + 1 : max),
     0
   );
   const latestCompletedLabel =
@@ -72,7 +72,7 @@ export function SubmissionDistribution({ students, stats }: SubmissionDistributi
 
   // Total completed assignments vs total possible assignments (totalStudents * 10)
   const totalPossible = total * 10;
-  const totalCompleted = chartData.reduce((acc, d) => acc + d.students, 0);
+  const totalCompleted = chartData.reduce((acc, d) => acc + d.submitted, 0);
   const avgProgress =
     totalPossible > 0 ? Number(((totalCompleted / totalPossible) * 100).toFixed(1)) : 0;
 
@@ -80,7 +80,7 @@ export function SubmissionDistribution({ students, stats }: SubmissionDistributi
     { label: 'Total students', value: total, icon: Users, tone: 'text-primary bg-primary/10' },
     {
       label: 'Completed all',
-      value: chartData[9]?.students || 0,
+      value: chartData[9]?.submitted || 0,
       icon: Award,
       tone: 'text-emerald-700 bg-emerald-500/10 dark:text-emerald-400',
     },
@@ -162,16 +162,16 @@ export function SubmissionDistribution({ students, stats }: SubmissionDistributi
                         {entry.name}
                       </p>
                       <div className="flex justify-between gap-4">
+                        <span className="text-muted-foreground">Total submitted</span>
+                        <strong>{entry.submitted}</strong>
+                      </div>
+                      <div className="mt-1 flex justify-between gap-4">
                         <span className="text-muted-foreground">Graded students</span>
-                        <strong>{entry.students}</strong>
+                        <strong>{entry.graded}</strong>
                       </div>
                       <div className="mt-1 flex justify-between gap-4">
                         <span className="text-muted-foreground">Cohort rate</span>
                         <strong>{entry.percentage}%</strong>
-                      </div>
-                      <div className="mt-1 flex justify-between gap-4">
-                        <span className="text-muted-foreground">Total submitted</span>
-                        <strong>{entry.submitted}</strong>
                       </div>
                       <div className="mt-1 flex justify-between gap-4">
                         <span className="text-muted-foreground">&gt;50% marks</span>
@@ -190,8 +190,8 @@ export function SubmissionDistribution({ students, stats }: SubmissionDistributi
                 }}
               />
               <Bar
-                dataKey="students"
-                name="Graded students"
+                dataKey="submitted"
+                name="Total submissions"
                 fill="url(#assignmentCompletionFill)"
                 radius={[0, 8, 8, 0]}
                 maxBarSize={22}

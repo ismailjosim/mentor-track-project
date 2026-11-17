@@ -110,7 +110,7 @@ export function AssignmentCompletionStats({
 
       <div className="p-6">
         {viewMode === 'cards' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3.5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
             {computedStats.map((item) => {
               const targetIsSet = item.targetPercentage != null && item.targetCount != null;
               const actualCompletionRate = item.actualCompletionRate ?? item.submissionRate;
@@ -121,7 +121,7 @@ export function AssignmentCompletionStats({
                   key={item.assignmentNumber}
                   className="flex flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-4 transition-all duration-200 hover:-translate-y-1 hover:shadow-md"
                 >
-                  <div className="mb-3 flex items-center justify-between border-b border-border/40 pb-2">
+                  <div className="mb-4 flex items-center justify-between border-b border-border/40 pb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-primary">
                       {item.assignmentKey}
                     </span>
@@ -130,7 +130,7 @@ export function AssignmentCompletionStats({
                     </span>
                   </div>
 
-                  <div className="mb-3">
+                  <div className="mb-4">
                     <p className="text-[11px] font-medium text-muted-foreground">
                       Total submissions
                     </p>
@@ -139,13 +139,13 @@ export function AssignmentCompletionStats({
                     </p>
                   </div>
 
-                  <div className="mb-3 grid grid-cols-2 gap-2 text-xs">
+                  <div className="mb-4 grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-lg bg-muted/40 p-2">
-                      <p className="text-[10px] leading-4 text-muted-foreground">Last Tuesday</p>
+                      <p className="text-[10px] leading-4 text-muted-foreground">Prior checkpoint</p>
                       <p className="font-bold">{item.previousWeekSubmittedCount ?? '—'}</p>
                     </div>
                     <div className="rounded-lg bg-emerald-500/10 p-2">
-                      <p className="text-[10px] leading-4 text-muted-foreground">New this week</p>
+                      <p className="text-[10px] leading-4 text-muted-foreground">Since Tuesday</p>
                       <p className="font-bold text-emerald-700 dark:text-emerald-400">
                         {item.newThisWeekSubmittedCount === undefined
                           ? '—'
@@ -154,7 +154,7 @@ export function AssignmentCompletionStats({
                     </div>
                   </div>
 
-                  <div className="mb-3 rounded-lg border border-border/50 p-2.5 text-xs">
+                  <div className="mb-4 rounded-lg border border-border/50 p-3 text-xs">
                     {targetIsSet ? (
                       <>
                         <div className="flex justify-between gap-2">

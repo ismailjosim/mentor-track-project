@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { AlertCircle, Download, FileText, LoaderCircle, TrendingUp } from 'lucide-react';
+import { AlertCircle, Download, FileText, Layers, LoaderCircle, TrendingUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/button';
 import { ASSIGNMENT_TARGET_PERCENTAGES } from '@/lib/assignment-targets';
@@ -182,6 +182,10 @@ export function WeeklyUpdatePanel({ cohort, reportTitle, milestones }: WeeklyUpd
           <div className="flex items-center gap-2">
             <TrendingUp className="size-5 text-primary" />
             <h3 className="font-bold">Weekly Update Report</h3>
+            <span className="inline-flex items-center gap-1 rounded-full border border-primary/15 bg-primary/5 px-2.5 py-1 text-[11px] font-semibold text-primary">
+              <Layers className="size-3" />
+              {cohort === 'all' ? 'All batches' : `Batch ${cohort}`}
+            </span>
           </div>
           <p className="mt-1 max-w-2xl text-xs leading-5 text-muted-foreground">
             মঙ্গলবারের checkpoint থেকে call summary, response-এ বলা প্রধান সমস্যা এবং assignment
