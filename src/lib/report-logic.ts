@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import mongoose, { type QueryFilter } from 'mongoose';
+import mongoose from 'mongoose';
 import Student from '@/models/Student';
 import CallLog from '@/models/CallLog';
-import type { StudentDocument } from '@/models/Student';
 import type { StudentAssignment } from '@/models/Student';
+import { buildCohortFilter } from '@/lib/cohort-filter';
 import {
   calculateWeeklyAssignmentChange,
   getTopCallIssues,
@@ -24,26 +24,6 @@ export type ReportSection =
   'assignmentSubmission' | 'callRounds' | 'assignmentWiseCalls' | 'summary' | 'callHistory';
 
 const ASSIGNMENT_KEYS = Array.from({ length: 10 }, (_, i) => `A-${String(i + 1).padStart(2, '0')}`);
-
-function buildCohortFilter(ownerId?: string, cohort?: string): QueryFilter<StudentDocument> {
-  const filter: QueryFilter<StudentDocument> = {};
-  if (ownerId) {
-    filter.ownerId = ownerId;
-  }
-  if (cohort && cohort !== 'all') {
-    const cleaned = cohort.trim().replace(/[^\d]/g, '');
-    if (cleaned) {
-      filter.$or = [
-        { cohort },
-        { cohort: cleaned },
-        { cohort: new RegExp(`^.*${cleaned}.*$`, 'i') },
-      ];
-    } else {
-      filter.cohort = cohort;
-    }
-  }
-  return filter;
-}
 
 async function getCohortStudentIds(ownerId?: string, cohort?: string) {
   const filter = buildCohortFilter(ownerId, cohort);

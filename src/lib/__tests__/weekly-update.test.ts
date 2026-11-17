@@ -4,6 +4,23 @@ import {
   getTopCallIssues,
   getTuesdayWeeklyPeriodStart,
 } from '../weekly-update';
+import { buildCohortFilter } from '../cohort-filter';
+
+describe('buildCohortFilter', () => {
+  it('uses the exact normalized cohort and authenticated owner', () => {
+    expect(buildCohortFilter('owner-1', 'Batch 14')).toEqual({
+      ownerId: 'owner-1',
+      cohort: '14',
+    });
+  });
+
+  it('does not match other cohorts containing the selected number', () => {
+    expect(buildCohortFilter('owner-1', '14')).toEqual({
+      ownerId: 'owner-1',
+      cohort: '14',
+    });
+  });
+});
 
 describe('getTuesdayWeeklyPeriodStart', () => {
   it('uses the latest Tuesday as the baseline during the week', () => {

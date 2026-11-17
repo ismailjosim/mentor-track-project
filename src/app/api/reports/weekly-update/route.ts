@@ -1,8 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import { getWeeklyUpdateReport } from '@/lib/report-logic';
-import { requireCurrentUserId, getCurrentSession, isSuperAdminEmail } from '@/lib/auth-utils';
-import Student from '@/models/Student';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
@@ -20,15 +19,7 @@ export async function GET(request: NextRequest) {
     }
 
     const cohort = searchParams.get('cohort') || undefined;
-    const session = await getCurrentSession();
-    const isSuperAdmin = session?.user && isSuperAdminEmail(session.user.email);
-    let effectiveUserId: string | undefined = authResult.userId;
-    if (isSuperAdmin) {
-      const ownCount = await Student.countDocuments({ ownerId: authResult.userId });
-      if (ownCount === 0) effectiveUserId = undefined;
-    }
-
-    const report = await getWeeklyUpdateReport(effectiveUserId, cohort, assignmentParam);
+    const report = await getWeeklyUpdateReport(authResult.userId, cohort, assignmentParam);
     logger.info('GET /api/reports/weekly-update', { cohort, currentAssignment: assignmentParam });
     return NextResponse.json(
       createResponse(200, 'Weekly update report generated successfully', report)

@@ -1,7 +1,7 @@
 import { connectDB } from '@/lib/mongodb';
 import { createResponse, handleDbError, logger } from '@/lib/utils';
 import { generateReport, ReportSection } from '@/lib/report-logic';
-import { requireCurrentUserId, getCurrentSession, isSuperAdminEmail } from '@/lib/auth-utils';
+import { requireCurrentUserId } from '@/lib/auth-utils';
 import Student from '@/models/Student';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -29,16 +29,6 @@ export async function GET(request: NextRequest) {
     const onlyMentorshipGroup = searchParams.get('onlyMentorshipGroup') === 'true';
     const cohort = searchParams.get('cohort') || undefined;
 
-    const session = await getCurrentSession();
-    const isSuperAdmin = session?.user && isSuperAdminEmail(session.user.email);
-    let effectiveUserId: string | undefined = userId;
-    if (isSuperAdmin) {
-      const ownCount = await Student.countDocuments({ ownerId: userId });
-      if (ownCount === 0) {
-        effectiveUserId = undefined;
-      }
-    }
-
     const requestedSections = sectionsParam
       ? sectionsParam
           .split(',')
@@ -55,9 +45,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const cohortOwnerFilter = effectiveUserId ? { ownerId: effectiveUserId } : {};
+    const cohortOwnerFilter = { ownerId: userId };
     const [report, distinctCohorts] = await Promise.all([
-      generateReport(effectiveUserId, requestedSections, {
+      generateReport(userId, requestedSections, {
         onlyMentorshipGroup,
         cohort,
       }),
