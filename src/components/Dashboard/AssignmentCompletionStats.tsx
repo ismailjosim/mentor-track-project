@@ -141,7 +141,9 @@ export function AssignmentCompletionStats({
 
                   <div className="mb-4 grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-lg bg-muted/40 p-2">
-                      <p className="text-[10px] leading-4 text-muted-foreground">Prior checkpoint</p>
+                      <p className="text-[10px] leading-4 text-muted-foreground">
+                        Prior checkpoint
+                      </p>
                       <p className="font-bold">{item.previousWeekSubmittedCount ?? '—'}</p>
                     </div>
                     <div className="rounded-lg bg-emerald-500/10 p-2">
@@ -225,7 +227,7 @@ export function AssignmentCompletionStats({
           </div>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-border/70">
-            <table className="w-full min-w-[1080px] text-sm">
+            <table className="w-full min-w-270 text-sm">
               <thead className="border-b border-border/70 bg-muted/40">
                 <tr className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-4 py-3 font-bold">Assignment</th>

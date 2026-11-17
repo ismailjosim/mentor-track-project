@@ -353,7 +353,7 @@ export function WeeklyUpdatePanel({ cohort, reportTitle, milestones }: WeeklyUpd
               Last three assignments · previous week vs this week
             </h4>
             <div className="overflow-x-auto rounded-xl border border-border/70">
-              <table className="w-full min-w-[690px] text-left text-xs">
+              <table className="w-full min-w-172.5 text-left text-xs">
                 <thead className="bg-muted/50 text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2.5 font-semibold">Assignment</th>
